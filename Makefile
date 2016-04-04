@@ -1,2 +1,2 @@
 all:
-	gcc -g mandelbrot.c -o mandelbrot -lncurses
+	gcc -Wall -g mandelbrot.c -o mandelbrot -lncurses -lm
