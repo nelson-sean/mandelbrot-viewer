@@ -3,6 +3,8 @@
 #include <ncurses.h>
 #include <math.h>
 
+#define BARSIZE 20
+
 ///////////////////////////
 // Structure definitions //
 ///////////////////////////
@@ -36,23 +38,36 @@ complex_t complex_add(complex_t x, complex_t y);
 complex_t complex_sub(complex_t x, complex_t y);
 long double complex_magnitude(complex_t x);
 
+complex_t scale(window_t display, int row, int column);
+
 void draw_info_bar(window_t display);
 
 
 int main(int argc, char **argv){
 
+    init_ncurses();
+
 	window_t display;
+    WINDOW *fractal_window;
 
 	display.min_x = -2;
 	display.max_x = 1;
 	display.min_y = -1;
 	display.max_y = 1;
-	display.screen_height  = LINES - 1;
-	display.screen_width = COLS;
+	display.screen_height  = LINES - 2;
+	display.screen_width = COLS-BARSIZE-2;
 
-    init_ncurses();
 
 	draw_info_bar(display);
+
+    fractal_window = newwin(LINES, COLS-BARSIZE, 0, BARSIZE);
+    wborder(fractal_window, '|', '|', '-', '-', '+', '+', '+', '+');
+    refresh();
+    wrefresh(fractal_window);
+
+    mvwprintw(fractal_window, 5, 120, "%.5Lf", scale(display, 5, 120).a);
+    refresh();
+    wrefresh(fractal_window);
 
     getch();
     endwin();
@@ -77,15 +92,14 @@ void init_ncurses(){
 
 void draw_info_bar(window_t display){
 
-	attron(COLOR_PAIR(2));
+    mvprintw(0, 0, "Real Axis:");
+    mvprintw(1, 0, "  min: %.5Lf", display.min_x);
+    mvprintw(2, 0, "  max: %.5Lf", display.max_x);
 
-	mvprintw(0, 0, "%*s", COLS, " ");
-	mvprintw(0, 0, "Real Axis: %.3Lf - %.3Lf | Imaginary Axis: %.3Lf - %.3Lf",
-			display.min_x, display.max_x,
-			display.min_y, display.max_y);
+    mvprintw(4, 0, "Imaginary Axis:");
+    mvprintw(5, 0, "  min: %.5Lf", display.min_y);
+    mvprintw(6, 0, "  min: %.5Lf", display.max_y);
 
-	attroff(COLOR_PAIR(2));
-	
 
 }
 
@@ -128,5 +142,23 @@ long double complex_magnitude(complex_t x){
 	long double result = sqrt(x.a * x.a + x.b * x.b);
 
 	return result;
+
+}
+
+complex_t scale(window_t display, int row, int col){
+
+    // window coords include border so subtract from row and column values to get actual coord on plane
+    int actual_x = col - 1;
+    int actual_y = row - 1;
+
+    complex_t c;
+
+    long double x_pixel_units = (display.max_x - display.min_x)/display.screen_width;
+    long double y_pixel_units = (display.max_y - display.min_y)/display.screen_height;
+
+    c.a = display.min_x + (actual_x * x_pixel_units);
+    c.b = display.max_y - (actual_y * y_pixel_units);
+
+    return c;
 
 }
