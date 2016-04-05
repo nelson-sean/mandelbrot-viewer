@@ -41,20 +41,21 @@ typedef enum {
 // Function definitions //
 //////////////////////////
 void init_ncurses();
-
 complex_t complex_multiply(complex_t x, complex_t y);
 complex_t complex_add(complex_t x, complex_t y);
 complex_t complex_sub(complex_t x, complex_t y);
 long double complex_magnitude(complex_t x);
-
 complex_t scale(window_t display, int row, int column);
-
 void draw_info_bar(window_t display);
 void draw_fractal_window(WINDOW *fractal_window, window_t display);
 void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action);
-
 int is_in_set(complex_t c);
 
+
+///////////////////////////////////////
+// main:                             //
+//   initialization and key handling //
+///////////////////////////////////////
 int main(int argc, char **argv){
 
     init_ncurses();
@@ -116,6 +117,12 @@ int main(int argc, char **argv){
     
 }
 
+
+
+/////////////////////////////////////////
+// init_ncurses:                       //
+//   setup ncurses and ncurses options //
+/////////////////////////////////////////
 void init_ncurses(){
 
     initscr();
@@ -131,6 +138,12 @@ void init_ncurses(){
 
 }
 
+
+
+//////////////////////////////////////////////////////////////
+// draw_info_bar:                                           //
+//   display information to the left of the fractal window  //
+//////////////////////////////////////////////////////////////
 void draw_info_bar(window_t display){
 
     mvprintw(0, 0, "Real Axis:");
@@ -144,6 +157,12 @@ void draw_info_bar(window_t display){
 
 }
 
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+// draw_fractal_window:                                                             //
+//   draw border around fractal window and draw appropriate cursor positions with X //
+//////////////////////////////////////////////////////////////////////////////////////
 void draw_fractal_window(WINDOW *fractal_window, window_t display){
 
     wclear(fractal_window);
@@ -165,6 +184,12 @@ void draw_fractal_window(WINDOW *fractal_window, window_t display){
 
 }
 
+
+
+////////////////////////////////////////
+// move_window:                       //
+//   handle window actions and redraw //
+////////////////////////////////////////
 void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action){
 
     long double x_cursor_units = (display->max_x - display->min_x)/display->screen_width;
@@ -217,6 +242,11 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
 
 }
 
+
+/////////////////////////////////////////////////////////////////////////
+// complex_multiply:                                                   //
+//   multiply two complex_t numbers and return the resulting complex_t //
+/////////////////////////////////////////////////////////////////////////
 complex_t complex_multiply(complex_t x, complex_t y){
 
 	complex_t result;
@@ -228,6 +258,12 @@ complex_t complex_multiply(complex_t x, complex_t y){
 
 }
 
+
+
+/////////////////////////////////////////////////////////////////////////
+// complex_add:                                                        //
+//   add two complex_t numbers and return the resulting complex_t      //
+/////////////////////////////////////////////////////////////////////////
 complex_t complex_add(complex_t x, complex_t y){
 
 	complex_t result;
@@ -239,6 +275,12 @@ complex_t complex_add(complex_t x, complex_t y){
 
 }
 
+
+
+///////////////////////////////////////////////////////////////////////////////////
+// complex_sub:                                                                  //
+//   subtract one complex_t from another and return the resulting complex_t      //
+///////////////////////////////////////////////////////////////////////////////////
 complex_t complex_sub(complex_t x, complex_t y){
 
 	complex_t result;
@@ -250,7 +292,13 @@ complex_t complex_sub(complex_t x, complex_t y){
 
 }
 
+
+
 // TODO: Either implement sqrt or ask about using math.h
+///////////////////////////////////////////
+// complex_magnitude:                    //
+//   return the magnitude of a complex_t //
+///////////////////////////////////////////
 long double complex_magnitude(complex_t x){
 
 	long double result = sqrt(x.a * x.a + x.b * x.b);
@@ -259,6 +307,12 @@ long double complex_magnitude(complex_t x){
 
 }
 
+
+
+//////////////////////////////////////////////////////////////////////////
+// complex_scale:                                                       //
+//   return the complex_t corresponding to the given cursor coordinates //
+//////////////////////////////////////////////////////////////////////////
 complex_t scale(window_t display, int row, int col){
 
     // window coords include border so subtract from row and column values to get actual coord on plane
@@ -277,6 +331,12 @@ complex_t scale(window_t display, int row, int col){
 
 }
 
+
+
+///////////////////////////////////////////////////////////////////////////////
+// is_in_set:                                                                //
+//   return true if complex_t c is in the mandelbrot set and false otherwise //
+///////////////////////////////////////////////////////////////////////////////
 int is_in_set(complex_t c){
 
     // initial z set to 0
