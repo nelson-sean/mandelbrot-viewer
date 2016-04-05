@@ -28,6 +28,15 @@ typedef struct {
 
 }window_t;
 
+typedef enum {
+    LEFT,
+    RIGHT,
+    UP,
+    DOWN,
+    ZOOM_OUT,
+    ZOOM_IN
+}WINDOW_ACTION;
+
 //////////////////////////
 // Function definitions //
 //////////////////////////
@@ -41,6 +50,8 @@ long double complex_magnitude(complex_t x);
 complex_t scale(window_t display, int row, int column);
 
 void draw_info_bar(window_t display);
+void draw_fractal_window(WINDOW *fractal_window, window_t display);
+void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action);
 
 int is_in_set(complex_t c);
 
@@ -62,23 +73,44 @@ int main(int argc, char **argv){
 	draw_info_bar(display);
 
     fractal_window = newwin(LINES, COLS-BARSIZE, 0, BARSIZE);
-    wborder(fractal_window, '|', '|', '-', '-', '+', '+', '+', '+');
 
-    int row, col;
-    for(row = 0; row < display.screen_height; row++){
-        for(col = 0; col < display.screen_width; col++){
-            complex_t c = scale(display, row, col);
-            if(!is_in_set(c)){
-                mvwprintw(fractal_window, row+1, col+1, "X");
-            }
-        }
-    }
-
+    draw_fractal_window(fractal_window, display);
 
     refresh();
     wrefresh(fractal_window);
 
-    getch();
+    while(1){
+
+        switch(getch()){
+
+            case 'a':
+                move_window(fractal_window, &display, LEFT);
+            break;
+
+            case 'd':
+                move_window(fractal_window, &display, RIGHT);
+            break;
+
+            case 'w':
+                move_window(fractal_window, &display, UP);
+            break;
+
+            case 's':
+                move_window(fractal_window, &display, DOWN);
+            break;
+
+            case 'e':
+                move_window(fractal_window, &display, ZOOM_IN);
+            break;
+
+            case 'q':
+                move_window(fractal_window, &display, ZOOM_OUT);
+            break;
+
+        }
+
+    }
+
     endwin();
     exit(0);
     
@@ -109,6 +141,79 @@ void draw_info_bar(window_t display){
     mvprintw(5, 0, "  min: %.5Lf", display.min_y);
     mvprintw(6, 0, "  min: %.5Lf", display.max_y);
 
+
+}
+
+void draw_fractal_window(WINDOW *fractal_window, window_t display){
+
+    wclear(fractal_window);
+
+    wborder(fractal_window, '|', '|', '-', '-', '+', '+', '+', '+');
+
+    int row, col;
+    for(row = 0; row < display.screen_height; row++){
+        for(col = 0; col < display.screen_width; col++){
+            complex_t c = scale(display, row, col);
+            if(!is_in_set(c)){
+                mvwprintw(fractal_window, row+1, col+1, "X");
+            }
+        }
+    }
+
+    refresh();
+    wrefresh(fractal_window);
+
+}
+
+void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action){
+
+    long double x_cursor_units = (display->max_x - display->min_x)/display->screen_width;
+    long double y_cursor_units = (display->max_y - display->min_y)/display->screen_height;
+
+    switch(action){
+
+        case LEFT:
+            display->max_x = display->max_x - x_cursor_units;
+            display->min_x = display->min_x - x_cursor_units;
+        break;
+
+        case RIGHT:
+            display->max_x = display->max_x + x_cursor_units;
+            display->min_x = display->min_x + x_cursor_units;
+        break;
+
+        case UP:
+            display->max_y = display->max_y + y_cursor_units;
+            display->min_y = display->min_y + y_cursor_units;
+        break;
+
+        case DOWN:
+            display->max_y = display->max_y - y_cursor_units;
+            display->min_y = display->min_y - y_cursor_units;
+        break;
+
+        case ZOOM_IN:
+
+            display->min_x += x_cursor_units;
+            display->max_x -= x_cursor_units;
+
+            display->min_y += y_cursor_units;
+            display->max_y -= y_cursor_units;
+
+        break;
+
+        case ZOOM_OUT:
+            display->min_x -= x_cursor_units;
+            display->max_x += x_cursor_units;
+
+            display->min_y -= y_cursor_units;
+            display->max_y += y_cursor_units;
+        break;
+
+    }
+
+    draw_info_bar(*display);
+    draw_fractal_window(fractal_window, *display);
 
 }
 
@@ -185,15 +290,15 @@ int is_in_set(complex_t c){
         complex_t result = complex_add(complex_multiply(z, z), c);
 
         if(complex_magnitude(result) >= 2){
-            return false;
+            return 0;
         }
 
         z = result;
         i++;
 
-    }while(i < 10);
+    }while(i < 1000);
 
-    return true;
+    return 1;
 
 
 }
