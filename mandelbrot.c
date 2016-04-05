@@ -129,6 +129,7 @@ void init_ncurses(){
     cbreak();
     noecho();
     keypad(stdscr, true);
+    curs_set(0);
     //nodelay(stdscr, TRUE);
     start_color();
     use_default_colors();
