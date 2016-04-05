@@ -42,6 +42,7 @@ complex_t scale(window_t display, int row, int column);
 
 void draw_info_bar(window_t display);
 
+int is_in_set(complex_t c);
 
 int main(int argc, char **argv){
 
@@ -62,10 +63,18 @@ int main(int argc, char **argv){
 
     fractal_window = newwin(LINES, COLS-BARSIZE, 0, BARSIZE);
     wborder(fractal_window, '|', '|', '-', '-', '+', '+', '+', '+');
-    refresh();
-    wrefresh(fractal_window);
 
-    mvwprintw(fractal_window, 5, 120, "%.5Lf", scale(display, 5, 120).a);
+    int row, col;
+    for(row = 0; row < display.screen_height; row++){
+        for(col = 0; col < display.screen_width; col++){
+            complex_t c = scale(display, row, col);
+            if(!is_in_set(c)){
+                mvwprintw(fractal_window, row+1, col+1, "X");
+            }
+        }
+    }
+
+
     refresh();
     wrefresh(fractal_window);
 
@@ -153,12 +162,38 @@ complex_t scale(window_t display, int row, int col){
 
     complex_t c;
 
-    long double x_pixel_units = (display.max_x - display.min_x)/display.screen_width;
-    long double y_pixel_units = (display.max_y - display.min_y)/display.screen_height;
+    long double x_cursor_units = (display.max_x - display.min_x)/display.screen_width;
+    long double y_cursor_units = (display.max_y - display.min_y)/display.screen_height;
 
-    c.a = display.min_x + (actual_x * x_pixel_units);
-    c.b = display.max_y - (actual_y * y_pixel_units);
+    c.a = display.min_x + (actual_x * x_cursor_units);
+    c.b = display.max_y - (actual_y * y_cursor_units);
 
     return c;
+
+}
+
+int is_in_set(complex_t c){
+
+    // initial z set to 0
+    complex_t z;    
+    z.a = 0;
+    z.b = 0;
+
+    int i = 0;
+    do{
+
+        complex_t result = complex_add(complex_multiply(z, z), c);
+
+        if(complex_magnitude(result) >= 2){
+            return false;
+        }
+
+        z = result;
+        i++;
+
+    }while(i < 10);
+
+    return true;
+
 
 }
