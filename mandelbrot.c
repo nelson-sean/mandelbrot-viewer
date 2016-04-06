@@ -53,6 +53,7 @@ void draw_info_bar(window_t display);
 void draw_fractal_window(WINDOW *fractal_window, window_t display);
 void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action);
 int is_in_set(complex_t c);
+void open_menu(window_t *display);
 
 
 ///////////////////////////////////////
@@ -110,6 +111,13 @@ int main(int argc, char **argv){
 
             case 'q':
                 move_window(fractal_window, &display, ZOOM_OUT);
+            break;
+
+            case 'm':
+                open_menu(&display);
+                clear();
+                draw_info_bar(display);
+                draw_fractal_window(fractal_window, display);
             break;
 
             // Escape key
@@ -187,11 +195,12 @@ void draw_fractal_window(WINDOW *fractal_window, window_t display){
     // redraw border around window
     wborder(fractal_window, '|', '|', '-', '-', '+', '+', '+', '+');
 
-    // create histogram and escape size buffer for coloring (they're doubles for hue calculations)
+    // create histogram and escape size buffer for coloring (doubles for hue calculations)
     double histogram[display.iterations];
-    double calculation_buffer[display.screen_height][display.screen_width];
+    int calculation_buffer[display.screen_height][display.screen_width];
 
     memset(histogram, 0, sizeof(histogram));
+    memset(calculation_buffer, 0, sizeof(calculation_buffer));
 
     // loop row by row and column by column populating histogram and escape size buffer
     int row, col;
@@ -313,6 +322,20 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
     draw_info_bar(*display);
     draw_fractal_window(fractal_window, *display);
 
+}
+
+
+
+void open_menu(window_t *display){
+
+    WINDOW* menu_win = newwin(10, 50, 5, 5);
+    box(menu_win, 0, 0);
+    wrefresh(menu_win);
+
+    getch();
+
+    delwin(menu_win);
+    
 }
 
 
