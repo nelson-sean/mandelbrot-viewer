@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <ncurses.h>
 #include <math.h>
+#include <string.h>
 
 #define BARSIZE 20
 
@@ -25,6 +26,8 @@ typedef struct {
 
 	int screen_height;
 	int screen_width;
+
+    int iterations;
 
 }window_t;
 
@@ -69,6 +72,7 @@ int main(int argc, char **argv){
 	display.max_y = 1;
 	display.screen_height  = LINES - 2;
 	display.screen_width = COLS-BARSIZE-2;
+    display.iterations = 1000;
 
 
 	draw_info_bar(display);
@@ -108,6 +112,12 @@ int main(int argc, char **argv){
                 move_window(fractal_window, &display, ZOOM_OUT);
             break;
 
+            // Escape key
+			case 27:
+                endwin();
+                exit(1);
+			break;
+
         }
 
     }
@@ -134,8 +144,13 @@ void init_ncurses(){
     start_color();
     use_default_colors();
 
-	init_pair(1, COLOR_WHITE, COLOR_BLACK);
-	init_pair(2, COLOR_BLACK, COLOR_WHITE);
+    init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(2, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(3, COLOR_GREEN, COLOR_BLACK);
+    init_pair(4, COLOR_CYAN, COLOR_BLACK);
+    init_pair(5, COLOR_BLUE, COLOR_BLACK);
+    init_pair(6, COLOR_MAGENTA, COLOR_BLACK);
+
 
 }
 
@@ -166,17 +181,74 @@ void draw_info_bar(window_t display){
 //////////////////////////////////////////////////////////////////////////////////////
 void draw_fractal_window(WINDOW *fractal_window, window_t display){
 
+    // clear display for redrawing
     wclear(fractal_window);
 
+    // redraw border around window
     wborder(fractal_window, '|', '|', '-', '-', '+', '+', '+', '+');
 
+    // create histogram and escape size buffer for coloring (they're doubles for hue calculations)
+    double histogram[display.iterations];
+    double calculation_buffer[display.screen_height][display.screen_width];
+
+    memset(histogram, 0, sizeof(histogram));
+
+    // loop row by row and column by column populating histogram and escape size buffer
     int row, col;
     for(row = 0; row < display.screen_height; row++){
         for(col = 0; col < display.screen_width; col++){
+
+            // find complex number corresponding to on screen coord and determine if it's in the set
             complex_t c = scale(display, row, col);
-            if(!is_in_set(c)){
-                mvwprintw(fractal_window, row+1, col+1, "X");
+            int escape = is_in_set(c);
+
+            // if escape > 0 coord is not in set
+            if(escape > 0){
+                calculation_buffer[row][col] = escape;
+                histogram[escape-1] += 1;
+            }else{
+                escape = 0;
             }
+
+        }
+    }
+
+    // total number of colored blocks in display
+    double total = 0.0;
+    int i;
+    for(i = 0; i < display.iterations; i++){
+        total += (double)histogram[i];
+    }
+
+    // calculate color and print
+    for(row = 0; row < display.screen_height; row++){
+        for(col = 0; col < display.screen_width; col++){
+
+            // this will produce a hue number between 0 and 1
+            long double hue_num = 0.0;
+            if(calculation_buffer[row][col] > 0){
+
+                int escape = calculation_buffer[row][col];
+
+                int i;
+                for(i = 0; i < escape-1; i++){
+                    long double quotient = histogram[i]/total;
+                    hue_num += quotient;
+                }
+
+                // hue is between 0 and 1 but we need between 1 and 6
+                hue_num *= 5;
+                hue_num += 1;
+
+                int color = round(hue_num);
+
+                wattron(fractal_window, COLOR_PAIR(color));
+                mvwprintw(fractal_window, row+1, col+1, "X");
+                wattroff(fractal_window, COLOR_PAIR(color));
+
+            }
+
+
         }
     }
 
@@ -338,6 +410,7 @@ complex_t scale(window_t display, int row, int col){
 // is_in_set:                                                                //
 //   return true if complex_t c is in the mandelbrot set and false otherwise //
 ///////////////////////////////////////////////////////////////////////////////
+// TODO: this is not to the lab specification, consider creating an exit_value function or sumpin
 int is_in_set(complex_t c){
 
     // initial z set to 0
@@ -345,21 +418,21 @@ int is_in_set(complex_t c){
     z.a = 0;
     z.b = 0;
 
-    int i = 0;
+    int i = 1;
     do{
 
         complex_t result = complex_add(complex_multiply(z, z), c);
 
         if(complex_magnitude(result) >= 2){
-            return 0;
+            return i;
         }
 
         z = result;
         i++;
 
-    }while(i < 1000);
+    }while(i <= 1000);
 
-    return 1;
+    return 0;
 
 
 }
