@@ -54,6 +54,7 @@ void draw_fractal_window(WINDOW *fractal_window, window_t display);
 void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action);
 int is_in_set(complex_t c);
 void open_menu(window_t *display);
+void draw_bitmap(window_t display, int image_width, int image_height);
 
 
 ///////////////////////////////////////
@@ -119,6 +120,11 @@ int main(int argc, char **argv){
                 draw_info_bar(display);
                 draw_fractal_window(fractal_window, display);
             break;
+
+			// TODO: figure out how to grab the ~ key
+			case 'b':
+				draw_bitmap(display, 1920, 1080);
+			break;
 
             // Escape key
 			case 27:
@@ -458,4 +464,150 @@ int is_in_set(complex_t c){
     return 0;
 
 
+}
+
+
+
+void draw_bitmap(window_t display, int image_width, int image_height){
+
+	window_t bitmap_window;
+
+	bitmap_window.min_x = display.min_x;
+	bitmap_window.max_x = display.max_x;
+	bitmap_window.min_y = display.min_y;
+	bitmap_window.max_y = display.max_y;
+
+	bitmap_window.screen_height = image_height;
+	bitmap_window.screen_width = image_width;
+
+	bitmap_window.iterations = 10000;
+
+	FILE *image;
+	image = fopen("fractal.bmp", "w");
+
+	if(image == NULL){
+		printf("error opening file for writing\n");
+		exit(1);
+	}
+
+    int bytes_per_row = (((24 * bitmap_window.screen_width) + 31) / 32) * 4;
+	int padding_bytes = bytes_per_row - (bitmap_window.screen_width * 3);
+
+    // write BMP header
+
+    char id[2] = {'B', 'M'};
+    int size = bytes_per_row * bitmap_window.screen_height;
+    short reserved = 0;
+    int offset = 26;
+
+    fwrite(id, 1, 2, image);
+    fwrite(&size, 4, 1, image);
+    fwrite(&reserved, 2, 2, image);
+    fwrite(&offset, 4, 1, image);
+
+    // write BITMAPCOREHEADER
+    int header_size = 12;
+    short width = bitmap_window.screen_width;
+    short height = bitmap_window.screen_height;
+    short color_planes = 1;
+    short bpp = 24;
+
+    fwrite(&header_size, 4, 1, image);
+    fwrite(&width, 2, 1, image);
+    fwrite(&height, 2, 1, image);
+    fwrite(&color_planes, 2, 1, image);
+    fwrite(&bpp, 2, 1, image);
+
+	// set up color palette
+	unsigned char **palette = malloc(8 * sizeof(char*));
+
+	int n;
+	for(n = 0; n < 8; n++){
+		palette[n] = malloc(3 * sizeof(char));
+	}
+
+	// bytes are in BGR order
+	palette[0] = (unsigned char[]){0x21, 0x1f, 0x1d};
+	palette[1] = (unsigned char[]){0x2b, 0x34, 0xcc};
+	palette[2] = (unsigned char[]){0x44, 0x88, 0x19};
+	palette[3] = (unsigned char[]){0x22, 0xa9, 0xfb};
+	palette[4] = (unsigned char[]){0xed, 0x71, 0x39};
+	palette[5] = (unsigned char[]){0xc7, 0x6a, 0xa3};
+	palette[6] = (unsigned char[]){0xed, 0x71, 0x39};
+	palette[7] = (unsigned char[]){0xc6, 0xc8, 0xc5};
+
+	double histogram[bitmap_window.iterations];
+	int calculation_buffer[bitmap_window.screen_height][bitmap_window.screen_width];
+	double total_colored = 0.0;
+
+	memset(histogram, 0, sizeof(histogram));
+	memset(calculation_buffer, 0, sizeof(calculation_buffer));
+
+
+	// population escape size buffer and color histogram
+	int row, col;
+	for(row = bitmap_window.screen_height - 1; row >= 0; row--){
+		for(col = 0; col < bitmap_window.screen_width; col++){
+
+			// find complex number corresponding to pixel and determine if it's in the set
+			complex_t c = scale(bitmap_window, row, col);
+			int escape = is_in_set(c);
+
+			// if escape is greater than zero pixel is not in set
+			if(escape > 0){
+				histogram[escape-1] += 1;
+				total_colored += 1;
+			}
+
+			calculation_buffer[row][col] = escape;
+
+		}
+	}
+
+    // calculate color and write to file
+    for(row = bitmap_window.screen_height - 1; row >= 0; row--){
+        for(col = 0; col < bitmap_window.screen_width; col++){
+
+            // this will produce a hue number between 0 and 1
+            long double hue_num = 0.0;
+            if(calculation_buffer[row][col] > 0){
+
+                int escape = calculation_buffer[row][col];
+
+                int i;
+                for(i = 0; i < escape-1; i++){
+                    long double quotient = histogram[i]/total_colored;
+                    hue_num += quotient;
+                }
+
+                // hue is between 0 and 1 but we need between 1 and 7
+                hue_num *= 6;
+				hue_num += 1;
+
+				// interpolate color based on distance between two colors in palette
+				int color1 = floor(hue_num);
+				int color2 = ceil(hue_num);
+
+				// first color's blue + difference between blue values * percent of difference
+				double blue = palette[color1][0] + ((palette[color2][0]-palette[color1][0]) * (color2 - hue_num));
+				double green = palette[color1][1] + ((palette[color2][1]-palette[color1][1]) * (color2 - hue_num));
+				double red = palette[color1][2] + ((palette[color2][2]-palette[color1][2]) * (color2 - hue_num));
+				unsigned char b = round(blue);
+				unsigned char g = round(green);
+				unsigned char r = round(red);
+				char color[] = {b, g, r};
+
+                //int color = round(hue_num);
+
+				fwrite(&color, 3, 1, image);
+
+            }else{
+				fwrite(palette[0], 3, 1, image);
+			}
+        }
+		char zero = 0;
+		fwrite(&zero, 1, padding_bytes, image);
+    }
+	
+	fclose(image);
 }
