@@ -55,6 +55,7 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
 int is_in_set(complex_t c);
 void open_menu(window_t *display);
 void draw_bitmap(window_t display, int image_width, int image_height);
+unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char color2[3], int samples);
 
 
 ///////////////////////////////////////
@@ -530,9 +531,9 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 	palette[0] = (unsigned char[]){0x21, 0x1f, 0x1d};
 	palette[1] = (unsigned char[]){0x2b, 0x34, 0xcc};
 	palette[2] = (unsigned char[]){0x44, 0x88, 0x19};
-	palette[3] = (unsigned char[]){0x22, 0xa9, 0xfb};
+	palette[3] = (unsigned char[]){0x22, 0xa9, 0xfb}; // blue
 	palette[4] = (unsigned char[]){0xed, 0x71, 0x39};
-	palette[5] = (unsigned char[]){0xc7, 0x6a, 0xa3};
+	palette[5] = (unsigned char[]){0xc7, 0x6a, 0xa3}; // purple
 	palette[6] = (unsigned char[]){0xed, 0x71, 0x39};
 	palette[7] = (unsigned char[]){0xc6, 0xc8, 0xc5};
 
@@ -597,7 +598,6 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 				unsigned char r = round(red);
 				char color[] = {b, g, r};
 
-                //int color = round(hue_num);
 
 				fwrite(&color, 3, 1, image);
 
@@ -610,4 +610,33 @@ void draw_bitmap(window_t display, int image_width, int image_height){
     }
 	
 	fclose(image);
+}
+
+unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char color2[3], int samples){
+
+    unsigned char **palette;
+
+    palette = malloc(samples * sizeof(unsigned char*));
+
+    int i;
+    for(i = 0; i < samples; i++){
+
+        palette[i] = malloc(3 * sizeof(unsigned char));
+
+        double progress = (1.0/samples) * i;
+
+        double blue = color1[0] + ((color2[0] - color1[0]) * progress);
+        double green = color1[1] + ((color2[1] - color1[1]) * progress);
+        double red = color1[2] + ((color2[2] - color1[2]) * progress);
+        unsigned char b = round(blue);
+        unsigned char g = round(green);
+        unsigned char r = round(red);
+
+        palette[i][0] = b;
+        palette[i][1] = g;
+        palette[i][2] = r;
+    }
+
+    return palette;
+
 }
