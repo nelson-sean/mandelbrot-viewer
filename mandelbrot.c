@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <ncurses.h>
+#include <form.h>
 #include <math.h>
 #include <string.h>
 
@@ -54,6 +56,7 @@ void draw_fractal_window(WINDOW *fractal_window, window_t display);
 void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action);
 int is_in_set(complex_t c);
 void open_menu(window_t *display);
+void open_bitmap_menu(window_t *display);
 void draw_bitmap(window_t display, int image_width, int image_height);
 unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char color2[3], int samples);
 
@@ -124,7 +127,10 @@ int main(int argc, char **argv){
 
 			// TODO: figure out how to grab the ~ key
 			case 'b':
-				draw_bitmap(display, 1920, 1080);
+                open_bitmap_menu(&display);
+                clear();
+                draw_info_bar(display);
+                draw_fractal_window(fractal_window, display);
 			break;
 
             // Escape key
@@ -345,6 +351,83 @@ void open_menu(window_t *display){
     
 }
 
+void open_bitmap_menu(window_t *display){
+
+    WINDOW *menu_win = newwin(10, 50, COLS/2, LINES/2);
+    FIELD *fields[3];
+    FORM *resolution_form;
+    int ch, rows, cols;
+
+    fields[0] = new_field(1, 15, 2, 9, 0, 0);
+    fields[1] = new_field(1, 15, 3, 9, 0, 0);
+    fields[2] = NULL;
+
+    set_field_back(fields[0], A_UNDERLINE);
+    field_opts_off(fields[0], O_AUTOSKIP);
+
+    set_field_back(fields[1], A_UNDERLINE);
+    field_opts_off(fields[1], O_AUTOSKIP);
+
+    resolution_form = new_form(fields);
+
+    scale_form(resolution_form, &rows, &cols);
+    menu_win = newwin(rows+4, cols+4, (LINES/2)-((rows+4)/2), (COLS/2)-((cols+4))/2);
+    keypad(menu_win, TRUE);
+
+    set_form_win(resolution_form, menu_win);
+    set_form_sub(resolution_form, derwin(menu_win, rows, cols, 1, 1));
+
+    box(menu_win, 0, 0);
+
+    post_form(resolution_form);
+
+    mvwprintw(menu_win, 1, ((cols+4)/2)-7, "Bitmap Export");
+    mvwprintw(menu_win, 3, 3, "Width: ");
+    mvwprintw(menu_win, 4, 2, "Height: ");
+
+    wrefresh(menu_win);
+    refresh();
+
+    form_driver(resolution_form, REQ_FIRST_FIELD);
+    curs_set(1);
+
+    while((ch = wgetch(menu_win)) != 27){
+        switch(ch){
+            case '\t':
+            case '\n':
+            case KEY_DOWN:
+                form_driver(resolution_form, REQ_NEXT_FIELD);
+                form_driver(resolution_form, REQ_END_LINE);
+            break;
+
+            case KEY_UP:
+                form_driver(resolution_form, REQ_PREV_FIELD);
+                form_driver(resolution_form, REQ_END_LINE);
+            break;
+
+            case KEY_BACKSPACE:
+                form_driver(resolution_form, REQ_PREV_CHAR);
+                form_driver(resolution_form, REQ_DEL_CHAR);
+            break;
+
+            default:
+                if(isdigit(ch)){
+                    form_driver(resolution_form, ch);
+                }
+            break;
+        }
+    }
+
+    curs_set(0);
+
+    unpost_form(resolution_form);
+    free_form(resolution_form);
+    free_field(fields[0]);
+    free_field(fields[1]);
+
+
+}
+
 
 /////////////////////////////////////////////////////////////////////////
 // complex_multiply:                                                   //
@@ -527,15 +610,25 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 		palette[n] = malloc(3 * sizeof(char));
 	}
 
-	// bytes are in BGR order
-	palette[0] = (unsigned char[]){0x21, 0x1f, 0x1d};
-	palette[1] = (unsigned char[]){0x2b, 0x34, 0xcc};
-	palette[2] = (unsigned char[]){0x44, 0x88, 0x19};
-	palette[3] = (unsigned char[]){0x22, 0xa9, 0xfb}; // blue
-	palette[4] = (unsigned char[]){0xed, 0x71, 0x39};
-	palette[5] = (unsigned char[]){0xc7, 0x6a, 0xa3}; // purple
-	palette[6] = (unsigned char[]){0xed, 0x71, 0x39};
-	palette[7] = (unsigned char[]){0xc6, 0xc8, 0xc5};
+//	// bytes are in BGR order
+//	palette[0] = (unsigned char[]){0x21, 0x1f, 0x1d};
+//	palette[1] = (unsigned char[]){0x2b, 0x34, 0xcc};
+//	palette[2] = (unsigned char[]){0x44, 0x88, 0x19};
+//	palette[3] = (unsigned char[]){0x22, 0xa9, 0xfb}; // yellow
+//	palette[4] = (unsigned char[]){0xed, 0x71, 0x39};
+//	palette[5] = (unsigned char[]){0xc7, 0x6a, 0xa3}; // purple
+//	palette[6] = (unsigned char[]){0xed, 0x71, 0x39};
+//	palette[7] = (unsigned char[]){0xc6, 0xc8, 0xc5}; // whiteish
+
+	palette[0] = (unsigned char[]){0xc6, 0xc8, 0xc5}; // whiteish
+	palette[1] = (unsigned char[]){0x95, 0xe0, 0xb3};
+	palette[2] = (unsigned char[]){0x5d, 0xbb, 0x82};
+	palette[3] = (unsigned char[]){0x32, 0x95, 0x59};
+    palette[4] = (unsigned char[]){0x13, 0x70, 0x37};
+    palette[5] = (unsigned char[]){0x00, 0x4b, 0x1d};
+
+
+    //palette = get_gradient_palette(palette[3], palette[5], 1000);
 
 	double histogram[bitmap_window.iterations];
 	int calculation_buffer[bitmap_window.screen_height][bitmap_window.screen_width];
@@ -582,7 +675,8 @@ void draw_bitmap(window_t display, int image_width, int image_height){
                 }
 
                 // hue is between 0 and 1 but we need between 1 and 7
-                hue_num *= 6;
+                //hue_num *= 6;
+                hue_num *= 4;
 				hue_num += 1;
 
 				// interpolate color based on distance between two colors in palette
@@ -598,11 +692,14 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 				unsigned char r = round(red);
 				char color[] = {b, g, r};
 
+                //int color = round(hue_num);
 
-				fwrite(&color, 3, 1, image);
+
+				fwrite(color, 3, 1, image);
 
             }else{
-				fwrite(palette[0], 3, 1, image);
+	            unsigned char color[] = {0x21, 0x1f, 0x1d};
+				fwrite(color, 3, 1, image);
 			}
         }
 		char zero = 0;
