@@ -90,7 +90,9 @@ int main(int argc, char **argv){
     refresh();
     wrefresh(fractal_window);
 
-    while(1){
+	int quit = 0;
+
+    while(!quit){
 
         switch(getch()){
 
@@ -135,8 +137,7 @@ int main(int argc, char **argv){
 
             // Escape key
 			case 27:
-                endwin();
-                exit(1);
+				quit = 1;
 			break;
 
         }
@@ -144,7 +145,7 @@ int main(int argc, char **argv){
     }
 
     endwin();
-    exit(0);
+    exit(1);
     
 }
 
@@ -342,11 +343,131 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
 void open_menu(window_t *display){
 
     WINDOW* menu_win = newwin(10, 50, 5, 5);
+	FIELD *fields[5];
+	FORM *form;
+	int ch, rows, cols;
+
+	fields[0] = new_field(1, 15, 1, 6, 0, 0);
+	fields[1] = new_field(1, 15, 2, 6, 0, 0);
+	fields[2] = new_field(1, 15, 5, 6, 0, 0);
+	fields[3] = new_field(1, 15, 6, 6, 0, 0);
+	fields[4] = NULL;
+
+	set_field_back(fields[0], A_UNDERLINE);
+    field_opts_off(fields[0], O_AUTOSKIP);
+
+	set_field_back(fields[1], A_UNDERLINE);
+    field_opts_off(fields[1], O_AUTOSKIP);
+
+	set_field_back(fields[2], A_UNDERLINE);
+    field_opts_off(fields[2], O_AUTOSKIP);
+
+	set_field_back(fields[3], A_UNDERLINE);
+    field_opts_off(fields[3], O_AUTOSKIP);
+
+	char *real_min_string = malloc(15*sizeof(char));
+	char *real_max_string = malloc(15*sizeof(char));
+	char *imag_min_string = malloc(15*sizeof(char));
+	char *imag_max_string = malloc(15*sizeof(char));
+
+	sprintf(real_min_string, "%.5Lf", display->min_x);
+	sprintf(real_max_string, "%.5Lf", display->max_x);
+	sprintf(imag_min_string, "%.5LF", display->min_y);
+	sprintf(imag_max_string, "%.5LF", display->max_y);
+
+	set_field_buffer(fields[0], 0, real_min_string);
+	set_field_buffer(fields[1], 0, real_max_string);
+	set_field_buffer(fields[2], 0, imag_min_string);
+	set_field_buffer(fields[3], 0, imag_max_string);
+
+	form = new_form(fields);
+
+	scale_form(form, &rows, &cols);
+	menu_win = newwin(rows+4, cols+11, (LINES/2)-((rows+4)/2), (COLS/2)-((cols+11)/2));
+	keypad(menu_win, TRUE);
+
+	set_form_win(form, menu_win);
+	set_form_sub(form, derwin(menu_win, rows, cols, 1, 1));
+
+	post_form(form);
+	
     box(menu_win, 0, 0);
     wrefresh(menu_win);
+	refresh();
 
-    getch();
+	mvwprintw(menu_win, 1, 1, "Real Axis:");
+	mvwprintw(menu_win, 2, 2, "min: ");
+	mvwprintw(menu_win, 3, 2, "min: ");
 
+	mvwprintw(menu_win, 5, 1, "Imaginary Axis:");
+	mvwprintw(menu_win, 6, 2, "min: ");
+	mvwprintw(menu_win, 7, 2, "min: ");
+
+	mvwprintw(menu_win, 9, 2, "m to confirm | ESC to cancel");
+	
+	wrefresh(menu_win);
+
+	curs_set(1);
+    form_driver(form, REQ_FIRST_FIELD);
+	form_driver(form, REQ_END_LINE);
+
+	int done = 0;
+	while(!done && (ch = wgetch(menu_win)) != 27){
+		switch(ch){
+			case KEY_UP:
+				form_driver(form, REQ_PREV_FIELD);
+				form_driver(form, REQ_END_LINE);
+			break;
+
+			case '\t':
+			case '\n':
+			case KEY_DOWN:
+				form_driver(form, REQ_NEXT_FIELD);
+				form_driver(form, REQ_END_LINE);
+			break;
+
+			case KEY_LEFT:
+				form_driver(form, REQ_PREV_CHAR);
+			break;
+
+			case KEY_RIGHT:
+				form_driver(form, REQ_NEXT_CHAR);
+			break;
+
+			case KEY_BACKSPACE:
+			case 127:
+				form_driver(form, REQ_PREV_CHAR);
+				form_driver(form, REQ_DEL_CHAR);
+			break;
+
+			case 'm':
+				form_driver(form, REQ_VALIDATION);
+
+				display->min_x = atof(field_buffer(fields[0], 0));
+				display->max_x = atof(field_buffer(fields[1], 0));
+				display->min_y = atof(field_buffer(fields[2], 0));
+				display->max_y = atof(field_buffer(fields[3], 0));
+
+				done = 1;
+
+			break;
+
+			default:
+				if(isdigit(ch) || ch == '-' || ch == '.'){
+					form_driver(form, ch);
+				}
+			break;
+		}
+	}
+
+	curs_set(0);
+
+	unpost_form(form);
+	free_form(form);
+	free_field(fields[0]);
+	free_field(fields[1]);
+	free_field(fields[2]);
+	free_field(fields[3]);
     delwin(menu_win);
     
 }
@@ -368,10 +489,15 @@ void open_bitmap_menu(window_t *display){
     set_field_back(fields[1], A_UNDERLINE);
     field_opts_off(fields[1], O_AUTOSKIP);
 
+	set_field_buffer(fields[0], 0, "100");
+	set_field_buffer(fields[1], 0, "100");
+
     resolution_form = new_form(fields);
 
+	// Note: this will set rows and cols to the size of the menu subwindow, menu_window will be of size
+	// row+4 x col+4
     scale_form(resolution_form, &rows, &cols);
-    menu_win = newwin(rows+4, cols+4, (LINES/2)-((rows+4)/2), (COLS/2)-((cols+4))/2);
+    menu_win = newwin(rows+4, cols+8, (LINES/2)-((rows+4)/2), (COLS/2)-((cols+4))/2);
     keypad(menu_win, TRUE);
 
     set_form_win(resolution_form, menu_win);
@@ -381,9 +507,10 @@ void open_bitmap_menu(window_t *display){
 
     post_form(resolution_form);
 
-    mvwprintw(menu_win, 1, ((cols+4)/2)-7, "Bitmap Export");
+    mvwprintw(menu_win, 1, ((cols+8)/2)-7, "Bitmap Export");
     mvwprintw(menu_win, 3, 3, "Width: ");
     mvwprintw(menu_win, 4, 2, "Height: ");
+	mvwprintw(menu_win, rows+2, ((cols+8)/2)-14, "B to confirm | ESC to cancel");
 
     wrefresh(menu_win);
     refresh();
@@ -391,29 +518,74 @@ void open_bitmap_menu(window_t *display){
     form_driver(resolution_form, REQ_FIRST_FIELD);
     curs_set(1);
 
-    while((ch = wgetch(menu_win)) != 27){
+	int done = 0;
+    while(!done && (ch = wgetch(menu_win)) != 27){
         switch(ch){
+
+			int image_width, image_height;
+
+			case 'b':
+			case 'B':
+
+				curs_set(0);
+				form_driver(resolution_form, REQ_VALIDATION);
+
+				image_width = atoi(field_buffer(fields[0], 0));
+				image_height = atoi(field_buffer(fields[1], 0));
+				draw_bitmap(*display, image_width, image_height);
+
+				done = 1;
+				
+			break;
+
             case '\t':
             case '\n':
             case KEY_DOWN:
+
                 form_driver(resolution_form, REQ_NEXT_FIELD);
                 form_driver(resolution_form, REQ_END_LINE);
+
             break;
 
             case KEY_UP:
+
                 form_driver(resolution_form, REQ_PREV_FIELD);
                 form_driver(resolution_form, REQ_END_LINE);
+
             break;
+
+			case KEY_LEFT:
+
+				form_driver(resolution_form, REQ_PREV_CHAR);
+
+			break;
+
+			case KEY_RIGHT:
+
+				form_driver(resolution_form, REQ_NEXT_CHAR);
+
+			break;
 
             case KEY_BACKSPACE:
+			case 127:
+
                 form_driver(resolution_form, REQ_PREV_CHAR);
                 form_driver(resolution_form, REQ_DEL_CHAR);
+
             break;
 
+			case KEY_DC:
+
+				form_driver(resolution_form, REQ_DEL_CHAR);
+
+			break;
+
             default:
+
                 if(isdigit(ch)){
                     form_driver(resolution_form, ch);
                 }
+
             break;
         }
     }
@@ -424,6 +596,7 @@ void open_bitmap_menu(window_t *display){
     free_form(resolution_form);
     free_field(fields[0]);
     free_field(fields[1]);
+    delwin(menu_win);
 
 
 }
@@ -564,7 +737,7 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 	bitmap_window.screen_height = image_height;
 	bitmap_window.screen_width = image_width;
 
-	bitmap_window.iterations = 10000;
+	bitmap_window.iterations = 1000;
 
 	FILE *image;
 	image = fopen("fractal.bmp", "w");
@@ -610,16 +783,7 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 		palette[n] = malloc(3 * sizeof(char));
 	}
 
-//	// bytes are in BGR order
-//	palette[0] = (unsigned char[]){0x21, 0x1f, 0x1d};
-//	palette[1] = (unsigned char[]){0x2b, 0x34, 0xcc};
-//	palette[2] = (unsigned char[]){0x44, 0x88, 0x19};
-//	palette[3] = (unsigned char[]){0x22, 0xa9, 0xfb}; // yellow
-//	palette[4] = (unsigned char[]){0xed, 0x71, 0x39};
-//	palette[5] = (unsigned char[]){0xc7, 0x6a, 0xa3}; // purple
-//	palette[6] = (unsigned char[]){0xed, 0x71, 0x39};
-//	palette[7] = (unsigned char[]){0xc6, 0xc8, 0xc5}; // whiteish
-
+	// TODO: Add more color palettes and a choice
 	palette[0] = (unsigned char[]){0xc6, 0xc8, 0xc5}; // whiteish
 	palette[1] = (unsigned char[]){0x95, 0xe0, 0xb3};
 	palette[2] = (unsigned char[]){0x5d, 0xbb, 0x82};
