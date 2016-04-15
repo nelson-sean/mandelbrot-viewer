@@ -775,100 +775,103 @@ void draw_bitmap(window_t display, int image_width, int image_height){
     fwrite(&color_planes, 2, 1, image);
     fwrite(&bpp, 2, 1, image);
 
-	// set up color palette
-	unsigned char **palette = malloc(8 * sizeof(char*));
+	// TODO: fix color mess
+	unsigned char **palette1;
+	unsigned char **palette2;
+	unsigned char **palette;
 
-	int n;
-	for(n = 0; n < 8; n++){
-		palette[n] = malloc(3 * sizeof(char));
+	palette = malloc(10 * sizeof(unsigned char*));
+	
+
+	unsigned char purple[] = {0x72, 0x02, 0x61};
+	unsigned char gold[] = {0x1b, 0x80, 0x99};
+	unsigned char blue[] = {0x88, 0x5e, 0x06};
+	palette1 = get_gradient_palette(gold, purple, 5);
+	palette2 = get_gradient_palette(purple, blue, 5);
+	int asdf;
+	for(asdf=0; asdf < 5; asdf++){
+		palette[asdf] = palette1[asdf];
+	}
+	for(asdf=0; asdf < 5; asdf++){
+		palette[asdf+5] = palette2[asdf];
 	}
 
 	// TODO: Add more color palettes and a choice
-	palette[0] = (unsigned char[]){0xc6, 0xc8, 0xc5}; // whiteish
-	palette[1] = (unsigned char[]){0x95, 0xe0, 0xb3};
-	palette[2] = (unsigned char[]){0x5d, 0xbb, 0x82};
-	palette[3] = (unsigned char[]){0x32, 0x95, 0x59};
-    palette[4] = (unsigned char[]){0x13, 0x70, 0x37};
-    palette[5] = (unsigned char[]){0x00, 0x4b, 0x1d};
+    
+    // Green spectrum
+//	palette[0] = (unsigned char[]){0xc6, 0xc8, 0xc5}; // whiteish
+//	palette[1] = (unsigned char[]){0x95, 0xe0, 0xb3};
+//	palette[2] = (unsigned char[]){0x5d, 0xbb, 0x82};
+//	palette[3] = (unsigned char[]){0x32, 0x95, 0x59};
+//  palette[4] = (unsigned char[]){0x13, 0x70, 0x37};
+//  palette[5] = (unsigned char[]){0x00, 0x4b, 0x1d};
 
-
-    //palette = get_gradient_palette(palette[3], palette[5], 1000);
-
-	double histogram[bitmap_window.iterations];
-	int calculation_buffer[bitmap_window.screen_height][bitmap_window.screen_width];
-	double total_colored = 0.0;
-
-	memset(histogram, 0, sizeof(histogram));
-	memset(calculation_buffer, 0, sizeof(calculation_buffer));
-
-
-	// population escape size buffer and color histogram
+	// smooth coloring experiment
 	int row, col;
 	for(row = bitmap_window.screen_height - 1; row >= 0; row--){
 		for(col = 0; col < bitmap_window.screen_width; col++){
 
-			// find complex number corresponding to pixel and determine if it's in the set
 			complex_t c = scale(bitmap_window, row, col);
-			int escape = is_in_set(c);
+			complex_t z;
+			z.a = 0;
+			z.b = 0;
 
-			// if escape is greater than zero pixel is not in set
-			if(escape > 0){
-				histogram[escape-1] += 1;
-				total_colored += 1;
+			double escape_r = 2.0;
+			int max_i = 100;
+
+			// TODO: figure out how to get is_in_set back in here
+			int i = 0;
+			while(1){
+				z = complex_add(complex_multiply(z, z), c);
+				i++;
+				double modulus = complex_magnitude(z);
+				if (modulus > escape_r){
+					break;
+				}
+				if(i > max_i){
+					break;
+				}
 			}
 
-			calculation_buffer[row][col] = escape;
+            if(i < max_i){
+                z = complex_add(complex_multiply(z, z), c);
+                i++;
+                z = complex_add(complex_multiply(z, z), c);
+                i++;
+                
+                double modulus = complex_magnitude(z);
+                double mu = i - ( log( log(modulus) ) / log(2.0) );
 
-		}
-	}
-
-    // calculate color and write to file
-    for(row = bitmap_window.screen_height - 1; row >= 0; row--){
-        for(col = 0; col < bitmap_window.screen_width; col++){
-
-            // this will produce a hue number between 0 and 1
-            long double hue_num = 0.0;
-            if(calculation_buffer[row][col] > 0){
-
-                int escape = calculation_buffer[row][col];
-
-                int i;
-                for(i = 0; i < escape-1; i++){
-                    long double quotient = histogram[i]/total_colored;
-                    hue_num += quotient;
+                if(isnan(mu)){
+                    mu = 0;
                 }
 
-                // hue is between 0 and 1 but we need between 1 and 7
-                //hue_num *= 6;
-                hue_num *= 4;
-				hue_num += 1;
+                if(mu < 0){
+                    mu *= -1;
+                }
 
-				// interpolate color based on distance between two colors in palette
-				int color1 = floor(hue_num);
-				int color2 = ceil(hue_num);
+                int color1 = (int)floor(mu) % 10;
+                int color2 = ((int)floor(mu)+1) % 10;
 
-				// first color's blue + difference between blue values * percent of difference
-				double blue = palette[color1][0] + ((palette[color2][0]-palette[color1][0]) * (color2 - hue_num));
-				double green = palette[color1][1] + ((palette[color2][1]-palette[color1][1]) * (color2 - hue_num));
-				double red = palette[color1][2] + ((palette[color2][2]-palette[color1][2]) * (color2 - hue_num));
-				unsigned char b = round(blue);
-				unsigned char g = round(green);
-				unsigned char r = round(red);
-				char color[] = {b, g, r};
+                double blue = palette[color1][0] + ((palette[color2][0]-palette[color1][0]) * (mu-floor(mu)));
+                double green = palette[color1][1] + ((palette[color2][1]-palette[color1][1]) * (mu-floor(mu)));
+                double red = palette[color1][2] + ((palette[color2][2]-palette[color1][2]) * (mu-floor(mu)));
+                unsigned char b = round(blue);
+                unsigned char g = round(green);
+                unsigned char r = round(red);
+                char color[] = {b, g, r};
 
-                //int color = round(hue_num);
-
-
-				fwrite(color, 3, 1, image);
-
+                fwrite(&color, 1, 3, image);
             }else{
-	            unsigned char color[] = {0x21, 0x1f, 0x1d};
-				fwrite(color, 3, 1, image);
-			}
-        }
-		char zero = 0;
+                char black[] = {0, 0, 0};
+                fwrite(&black, 1, 3, image);
+            }
+		}
+
+		unsigned char zero = 0x0;
 		fwrite(&zero, 1, padding_bytes, image);
-    }
+
+	}
 	
 	fclose(image);
 }
