@@ -516,6 +516,7 @@ void open_bitmap_menu(window_t *display){
     refresh();
 
     form_driver(resolution_form, REQ_FIRST_FIELD);
+    form_driver(resolution_form, REQ_END_LINE);
     curs_set(1);
 
 	int done = 0;
@@ -737,7 +738,7 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 	bitmap_window.screen_height = image_height;
 	bitmap_window.screen_width = image_width;
 
-	bitmap_window.iterations = 1000;
+	bitmap_window.iterations = 100;
 
 	FILE *image;
 	image = fopen("fractal.bmp", "w");
@@ -786,14 +787,14 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 	unsigned char purple[] = {0x72, 0x02, 0x61};
 	unsigned char gold[] = {0x1b, 0x80, 0x99};
 	unsigned char blue[] = {0x88, 0x5e, 0x06};
-	palette1 = get_gradient_palette(gold, purple, 5);
-	palette2 = get_gradient_palette(purple, blue, 5);
+	palette1 = get_gradient_palette(gold, purple, 4);
+	palette2 = get_gradient_palette(purple, blue, 4);
 	int asdf;
-	for(asdf=0; asdf < 5; asdf++){
+	for(asdf=0; asdf < 4; asdf++){
 		palette[asdf] = palette1[asdf];
 	}
-	for(asdf=0; asdf < 5; asdf++){
-		palette[asdf+5] = palette2[asdf];
+	for(asdf=0; asdf < 4; asdf++){
+		palette[asdf+4] = palette2[asdf];
 	}
 
 	// TODO: Add more color palettes and a choice
@@ -820,6 +821,7 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 			int max_i = 100;
 
 			// TODO: figure out how to get is_in_set back in here
+			//       need more information than is_in_set can provide
 			int i = 0;
 			while(1){
 				z = complex_add(complex_multiply(z, z), c);
@@ -850,8 +852,8 @@ void draw_bitmap(window_t display, int image_width, int image_height){
                     mu *= -1;
                 }
 
-                int color1 = (int)floor(mu) % 10;
-                int color2 = ((int)floor(mu)+1) % 10;
+                int color1 = (int)floor(mu) % 8;
+                int color2 = ((int)floor(mu)+1) % 8;
 
                 double blue = palette[color1][0] + ((palette[color2][0]-palette[color1][0]) * (mu-floor(mu)));
                 double green = palette[color1][1] + ((palette[color2][1]-palette[color1][1]) * (mu-floor(mu)));
