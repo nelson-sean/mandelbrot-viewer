@@ -41,6 +41,13 @@ typedef enum {
     ZOOM_IN
 }WINDOW_ACTION;
 
+typedef enum {
+    GOLDEN_PURPLE,
+    PASTEL_RAINBOW,
+    SCARLET_GRAY,
+    OCEAN
+}COLOR_PALETTE;
+
 //////////////////////////
 // Function definitions //
 //////////////////////////
@@ -56,8 +63,9 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
 double is_in_set(complex_t c);
 void open_menu(window_t *display);
 void open_bitmap_menu(window_t *display);
-void draw_bitmap(window_t display, int image_width, int image_height);
+void draw_bitmap(window_t display, int image_width, int image_height, COLOR_PALETTE colors);
 unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char color2[3], int samples);
+unsigned char **create_palette(COLOR_PALETTE colors);
 
 
 ///////////////////////////////////////
@@ -488,7 +496,7 @@ void open_bitmap_menu(window_t *display){
 
                 image_width = atoi(field_buffer(fields[0], 0));
                 image_height = atoi(field_buffer(fields[1], 0));
-                draw_bitmap(*display, image_width, image_height);
+                draw_bitmap(*display, image_width, image_height, OCEAN);
 
                 done = 1;
                 
@@ -701,7 +709,7 @@ double is_in_set(complex_t c){
 
 
 
-void draw_bitmap(window_t display, int image_width, int image_height){
+void draw_bitmap(window_t display, int image_width, int image_height, COLOR_PALETTE colors){
 
     window_t bitmap_window;
 
@@ -750,28 +758,7 @@ void draw_bitmap(window_t display, int image_width, int image_height){
     fwrite(&color_planes, 2, 1, image);
     fwrite(&bpp, 2, 1, image);
 
-    // TODO: fix color mess
-    unsigned char **palette1;
-    unsigned char **palette2;
-    unsigned char **palette;
-
-    palette = malloc(10 * sizeof(unsigned char*));
-    
-
-    unsigned char purple[] = {0x72, 0x02, 0x61};
-    unsigned char gold[] = {0x1b, 0x80, 0x99};
-    unsigned char blue[] = {0x88, 0x5e, 0x06};
-    palette1 = get_gradient_palette(gold, purple, 4);
-    palette2 = get_gradient_palette(purple, blue, 4);
-    int asdf;
-    for(asdf=0; asdf < 4; asdf++){
-        palette[asdf] = palette1[asdf];
-    }
-    for(asdf=0; asdf < 4; asdf++){
-        palette[asdf+4] = palette2[asdf];
-    }
-
-    // TODO: Add more color palettes and a choice
+    unsigned char **palette = create_palette(colors);
     
     // smooth coloring experiment
     int row, col;
@@ -784,8 +771,34 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 
             if(mu != 0){
 
-                int color1 = (int)floor(mu) % 8;
-                int color2 = ((int)floor(mu)+1) % 8;
+                int color1, color2;
+                switch(colors){
+
+                    // 3 color palettes
+                    case GOLDEN_PURPLE:
+                    case SCARLET_GRAY:
+
+                        color1 = (int)floor(mu) % 8;
+                        color2 = ((int)floor(mu) + 1) % 8;
+
+                    break;
+
+                    case OCEAN:
+
+                        color1 = (int)floor(mu) % 9;
+                        color2 = ((int)floor(mu) + 1) % 9;
+
+                    break;
+
+                    // 4 color palettes
+                    case PASTEL_RAINBOW:
+
+                        color1 = (int)floor(mu) % 12;
+                        color2 = ((int)floor(mu)+1) % 12;
+
+                    break;
+
+                }
 
                 double blue = palette[color1][0] + ((palette[color2][0]-palette[color1][0]) * (mu-floor(mu)));
                 double green = palette[color1][1] + ((palette[color2][1]-palette[color1][1]) * (mu-floor(mu)));
@@ -834,6 +847,107 @@ unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char colo
         palette[i][0] = b;
         palette[i][1] = g;
         palette[i][2] = r;
+    }
+
+    return palette;
+
+}
+
+unsigned char **create_palette(COLOR_PALETTE colors){
+
+    // GOLDEN_PURPLE colors
+    unsigned char gp_purple[] = {0x72, 0x02, 0x61};
+    unsigned char gp_gold[] = {0x1b, 0x80, 0x99};
+    unsigned char gp_blue[] = {0x88, 0x5e, 0x06};
+
+    // PASTEL_RAINBOW colors
+    unsigned char pr_blue[] = {0x6a, 0x4e, 0x23};
+    unsigned char pr_green[] = {0x31, 0x80, 0x26};
+    unsigned char pr_yellow[] = {0x30, 0x72, 0xa5};
+    unsigned char pr_red[] = {0x30, 0x36, 0xa5};
+
+    // SCARLET_GRAY colors
+    unsigned char sg_red[] = {0x0, 0x0, 0xbb};
+    unsigned char sg_gray[] = {0x66, 0x66, 0x66};
+    unsigned char sg_white[] = {0xff, 0xff, 0xff};
+
+    // OCEAN colors
+    unsigned char o_lightgreen[] = {0x29, 0xd4, 0x9f};
+    unsigned char o_bluegreen[] = {0x5d, 0x94, 0x14};
+    unsigned char o_turquoise[] = {0x4d, 0x67, 0x0b};
+    unsigned char o_marine[] = {0x43, 0x45, 0x0a};
+
+    // final palette to be returned
+    unsigned char **palette;
+
+    // gradient palettes to be combined
+    unsigned char **palette1;
+    unsigned char **palette2;
+    unsigned char **palette3;
+
+    // for array indexing later
+    int i;
+    
+
+    switch(colors){
+
+        case GOLDEN_PURPLE:
+
+            palette = malloc(8 * sizeof(unsigned char*));
+            
+            palette1 = get_gradient_palette(gp_gold, gp_purple, 4);
+            palette2 = get_gradient_palette(gp_purple, gp_blue, 4);
+            for(i=0; i < 4; i++){
+                palette[i] = palette1[i];
+                palette[i+4] = palette2[i];
+            }
+
+        break;
+
+        case PASTEL_RAINBOW:
+
+            palette = malloc(12 * sizeof(unsigned char*));
+
+            palette1 = get_gradient_palette(pr_blue, pr_red, 4);
+            palette2 = get_gradient_palette(pr_red, pr_yellow, 4);
+            palette3 = get_gradient_palette(pr_yellow, pr_green, 4);
+
+            for(i = 0; i < 4; i++){
+                palette[i] = palette1[i];
+                palette[i+4] = palette2[i];
+                palette[i+8] = palette3[i];
+            }
+
+        break;
+
+        case SCARLET_GRAY:
+
+            palette = malloc(8 * sizeof(unsigned char*));
+
+            palette1 = get_gradient_palette(sg_gray, sg_red, 4);
+            palette2 = get_gradient_palette(sg_red, sg_white, 4);
+            for(i=0; i < 4; i++){
+                palette[i] = palette1[i];
+                palette[i+4] = palette2[i];
+            }
+
+        break;
+
+        case OCEAN:
+
+            palette = malloc(9 * sizeof(unsigned char*));
+
+            palette1 = get_gradient_palette(o_lightgreen, o_bluegreen, 3);
+            palette2 = get_gradient_palette(o_bluegreen, o_turquoise, 3);
+            palette3 = get_gradient_palette(o_turquoise, o_marine, 3);
+            for(i = 0; i < 3; i++){
+                palette[i] = palette1[i];
+                palette[i+3] = palette2[i];
+                palette[i+6] = palette3[i];
+            }
+
+        break;
+
     }
 
     return palette;
