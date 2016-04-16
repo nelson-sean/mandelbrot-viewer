@@ -127,8 +127,9 @@ int main(int argc, char **argv){
                 draw_fractal_window(fractal_window, display);
             break;
 
-			// TODO: figure out how to grab the ~ key
-			case 'b':
+			// ascii codes for '`' and '~'
+			case 96:
+			case 126:
                 open_bitmap_menu(&display);
                 clear();
                 draw_info_bar(display);
