@@ -464,7 +464,7 @@ void open_bitmap_menu(window_t *display){
     mvwprintw(menu_win, 1, ((cols+8)/2)-7, "Bitmap Export");
     mvwprintw(menu_win, 3, 3, "Width: ");
     mvwprintw(menu_win, 4, 2, "Height: ");
-    mvwprintw(menu_win, rows+2, ((cols+8)/2)-14, "B to confirm | ESC to cancel");
+    mvwprintw(menu_win, rows+2, ((cols+8)/2)-14, "~ to confirm | ESC to cancel");
 
     wrefresh(menu_win);
     refresh();
@@ -479,8 +479,9 @@ void open_bitmap_menu(window_t *display){
 
             int image_width, image_height;
 
-            case 'b':
-            case 'B':
+            // ascii codes for '`' and '~' respectively
+            case 96:
+            case 126:
 
                 curs_set(0);
                 form_driver(resolution_form, REQ_VALIDATION);
@@ -714,7 +715,7 @@ void draw_bitmap(window_t display, int image_width, int image_height){
 
 
     FILE *image;
-    image = fopen("fractal.bmp", "w");
+    image = fopen("fractal.bmp", "wb");
 
     if(image == NULL){
         printf("error opening file for writing\n");
