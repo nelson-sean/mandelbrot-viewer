@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <ncurses.h>
 #include <form.h>
+#include <menu.h>
 #include <math.h>
 #include <string.h>
 
@@ -42,10 +43,10 @@ typedef enum {
 }WINDOW_ACTION;
 
 typedef enum {
-    GOLDEN_PURPLE,
-    PASTEL_RAINBOW,
-    SCARLET_GRAY,
-    OCEAN
+    GOLDEN_PURPLE = 0,
+    PASTEL_RAINBOW = 1,
+    SCARLET_GRAY = 2,
+    OCEAN = 3
 }COLOR_PALETTE;
 
 //////////////////////////
@@ -63,9 +64,11 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
 double is_in_set(complex_t c);
 void open_menu(window_t *display);
 void open_bitmap_menu(window_t *display);
+COLOR_PALETTE open_palette_menu(window_t *display);
 void draw_bitmap(window_t display, int image_width, int image_height, COLOR_PALETTE colors);
 unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char color2[3], int samples);
 unsigned char **create_palette(COLOR_PALETTE colors);
+void free_palette(unsigned char **palette, COLOR_PALETTE colors);
 
 
 ///////////////////////////////////////
@@ -430,16 +433,25 @@ void open_menu(window_t *display){
     free_field(fields[1]);
     free_field(fields[2]);
     free_field(fields[3]);
+    free(real_min_string);
+    free(real_max_string);
+    free(imag_min_string);
+    free(imag_max_string);
     delwin(menu_win);
     
 }
 
 void open_bitmap_menu(window_t *display){
 
+    // define all necessary form/menu items
     WINDOW *menu_win = newwin(10, 50, COLS/2, LINES/2);
     FIELD *fields[3];
     FORM *resolution_form;
+    COLOR_PALETTE palette;
     int ch, rows, cols;
+
+    palette = open_palette_menu(display);
+
 
     fields[0] = new_field(1, 15, 2, 9, 0, 0);
     fields[1] = new_field(1, 15, 3, 9, 0, 0);
@@ -496,7 +508,7 @@ void open_bitmap_menu(window_t *display){
 
                 image_width = atoi(field_buffer(fields[0], 0));
                 image_height = atoi(field_buffer(fields[1], 0));
-                draw_bitmap(*display, image_width, image_height, OCEAN);
+                draw_bitmap(*display, image_width, image_height, palette);
 
                 done = 1;
                 
@@ -563,6 +575,117 @@ void open_bitmap_menu(window_t *display){
     delwin(menu_win);
 
 
+}
+
+COLOR_PALETTE open_palette_menu(window_t *display){
+
+    WINDOW *palette_window;
+    ITEM **palette_items;
+    ITEM *choice;
+    MENU *palette_menu;
+    COLOR_PALETTE palette;
+    int ch, done;
+    int n_choices = 4;
+
+    // default value in case of error somewhere
+    palette = GOLDEN_PURPLE;
+
+    // Color choices for palette menu
+    char *choices[] = {
+        "Golden Purple",
+        "Pastel Rainbow",
+        "Scarlet and Gray",
+        "Ocean"
+    };
+
+    palette_items = NULL;
+    palette_items = malloc(n_choices * sizeof(ITEM *));
+
+    int i;
+    for(i = 0; i < n_choices; i++){
+        palette_items[i] = new_item(choices[i], choices[i]);
+    }
+
+    // create menu
+    palette_menu = new_menu(palette_items);
+
+    // create window for menu
+    palette_window = newwin(10, 26, (LINES/2)-5, (COLS/2)-13);
+    keypad(palette_window, TRUE);
+
+    // associate menu's main and subwindow
+    set_menu_win(palette_menu, palette_window);
+    set_menu_sub(palette_menu, derwin(palette_window, n_choices, 18, 4, 3));
+
+    set_menu_mark(palette_menu, ">");
+
+    // print border around window
+    box(palette_window, 0, 0);
+
+    // refresh main screen
+    refresh();
+
+    // print menu message
+    mvwprintw(palette_window, 1, 2, "Choose a color palette");
+
+    // post menu and draw menu window
+    post_menu(palette_menu);
+    wrefresh(palette_window);
+
+    // grab input until enter is pressed
+    done = FALSE;
+    while(!done){
+        ch = wgetch(palette_window);
+        switch(ch){
+
+            case KEY_DOWN:
+                menu_driver(palette_menu, REQ_DOWN_ITEM);
+            break;
+
+            case KEY_UP:
+                menu_driver(palette_menu, REQ_UP_ITEM);
+            break;
+
+            case '\n':
+
+                // set choice to item currently highlighted in menu
+                choice = current_item(palette_menu);
+                done = TRUE;
+
+            break;
+
+        }
+        wrefresh(palette_window);
+    }
+
+
+    // compare string in menu choice to strings originally defined
+    for(i = 0; i < n_choices; i++){
+        if(strcmp(choice->name.str, choices[i]) == 0){
+
+            // if matched set return value to i
+            palette = i;
+
+        }
+    }
+
+    // clean up menu
+    unpost_menu(palette_menu);
+    for(i = 0; i < n_choices; i++){
+        free_item(palette_items[i]);
+    }
+    free_menu(palette_menu);
+    free_item(choice);
+    free(palette_items);
+
+    palette_menu = NULL;
+    palette_items = NULL;
+    palette_window = NULL;
+    choice = NULL;
+
+    refresh();
+
+    return palette;
 }
 
 
@@ -820,7 +943,9 @@ void draw_bitmap(window_t display, int image_width, int image_height, COLOR_PALE
         fwrite(&zero, 1, padding_bytes, image);
 
     }
-    
+
+
+    free_palette(palette, colors);
     fclose(image);
 }
 
@@ -898,8 +1023,10 @@ unsigned char **create_palette(COLOR_PALETTE colors){
             palette1 = get_gradient_palette(gp_gold, gp_purple, 4);
             palette2 = get_gradient_palette(gp_purple, gp_blue, 4);
             for(i=0; i < 4; i++){
+
                 palette[i] = palette1[i];
                 palette[i+4] = palette2[i];
+
             }
 
         break;
@@ -913,9 +1040,11 @@ unsigned char **create_palette(COLOR_PALETTE colors){
             palette3 = get_gradient_palette(pr_yellow, pr_green, 4);
 
             for(i = 0; i < 4; i++){
+
                 palette[i] = palette1[i];
                 palette[i+4] = palette2[i];
                 palette[i+8] = palette3[i];
+
             }
 
         break;
@@ -927,8 +1056,10 @@ unsigned char **create_palette(COLOR_PALETTE colors){
             palette1 = get_gradient_palette(sg_gray, sg_red, 4);
             palette2 = get_gradient_palette(sg_red, sg_white, 4);
             for(i=0; i < 4; i++){
+
                 palette[i] = palette1[i];
                 palette[i+4] = palette2[i];
+
             }
 
         break;
@@ -941,15 +1072,62 @@ unsigned char **create_palette(COLOR_PALETTE colors){
             palette2 = get_gradient_palette(o_bluegreen, o_turquoise, 3);
             palette3 = get_gradient_palette(o_turquoise, o_marine, 3);
             for(i = 0; i < 3; i++){
+
                 palette[i] = palette1[i];
                 palette[i+3] = palette2[i];
                 palette[i+6] = palette3[i];
+
             }
 
         break;
 
     }
 
+    palette1 = NULL;
+    palette2 = NULL;
+    palette3 = NULL;
     return palette;
+
+}
+
+void free_palette(unsigned char **palette, COLOR_PALETTE colors){
+
+    int i;
+
+    switch(colors){
+
+        // 8 color palettes
+        case GOLDEN_PURPLE:
+        case SCARLET_GRAY:
+
+            for(i = 0; i < 8; i++){
+                free(palette[i]);
+            }
+
+        break;
+
+        // 9 color palettes
+        case OCEAN:
+
+            for(i = 0; i < 9; i++){
+                free(palette[i]);
+            }
+
+
+        break;
+
+
+        // 12 color palettes
+        case PASTEL_RAINBOW:
+
+            for(i = 0; i < 12; i++){
+                free(palette[i]);
+            }
+
+        break;
+
+    }
+
+    free(palette);
 
 }
