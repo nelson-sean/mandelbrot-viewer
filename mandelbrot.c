@@ -605,6 +605,7 @@ COLOR_PALETTE open_palette_menu(window_t *display){
     for(i = 0; i < n_choices; i++){
         palette_items[i] = new_item(choices[i], choices[i]);
     }
+    palette_items[i] = NULL;
 
     // create menu
     palette_menu = new_menu(palette_items);
@@ -674,9 +675,10 @@ COLOR_PALETTE open_palette_menu(window_t *display){
     for(i = 0; i < n_choices; i++){
         free_item(palette_items[i]);
     }
-    free_menu(palette_menu);
-    free_item(choice);
     free(palette_items);
+    free_item(choice);
+    free_menu(palette_menu);
+    delwin(palette_window);
 
     palette_menu = NULL;
     palette_items = NULL;
