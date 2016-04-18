@@ -7,8 +7,8 @@
 #include <math.h>
 #include <string.h>
 
-#define BARSIZE 20
-#define MAX_ITERATIONS 100
+#define BARSIZE 18
+#define MAX_ITERATIONS 1000
 
 ///////////////////////////
 // Structure definitions //
@@ -77,11 +77,14 @@ void free_palette(unsigned char **palette, COLOR_PALETTE colors);
 ///////////////////////////////////////
 int main(int argc, char **argv){
 
+    // initialize ncurses options
     init_ncurses();
 
+    // create window_t object and ncurses window
     window_t display;
     WINDOW *fractal_window;
 
+    // set display default values
     display.min_x = -2;
     display.max_x = 1;
     display.min_y = -1;
@@ -90,70 +93,91 @@ int main(int argc, char **argv){
     display.screen_width = COLS-BARSIZE-2;
 
 
+    // draw info bar to left of fractal window
     draw_info_bar(display);
 
+    // create new window for displaying fractal
     fractal_window = newwin(LINES, COLS-BARSIZE, 0, BARSIZE);
 
+    // draw fractal to new window
     draw_fractal_window(fractal_window, display);
 
+    // update screen
     refresh();
     wrefresh(fractal_window);
 
-    int quit = 0;
-
+    int quit = FALSE;
     while(!quit){
 
+        // handle keyboard input
         switch(getch()){
 
+            // move fractal rendering left
             case 'a':
                 move_window(fractal_window, &display, LEFT);
             break;
 
+            // move fractal rendering right
             case 'd':
                 move_window(fractal_window, &display, RIGHT);
             break;
 
+            // move fractal rendering up
             case 'w':
                 move_window(fractal_window, &display, UP);
             break;
 
+            // move fractal rendering down
             case 's':
                 move_window(fractal_window, &display, DOWN);
             break;
 
+            // zoom fractal rendering in
             case 'e':
                 move_window(fractal_window, &display, ZOOM_IN);
             break;
 
+            // zoom fractal rendering out
             case 'q':
                 move_window(fractal_window, &display, ZOOM_OUT);
             break;
 
+            // open axis menu
             case 'm':
+
                 open_menu(&display);
                 clear();
+
+                // redraw display after menu closes
                 draw_info_bar(display);
                 draw_fractal_window(fractal_window, display);
+
             break;
 
             // capture ascii codes for '`' and '~'
+            // open bitmap menus and draw to file
             case 96:
             case 126:
+
                 open_bitmap_menu(&display);
                 clear();
+
+                // redraw display after menu closes
                 draw_info_bar(display);
                 draw_fractal_window(fractal_window, display);
+
             break;
 
             // capture ascii code for escape key
             case 27:
-                quit = 1;
+                quit = TRUE;
             break;
 
         }
 
     }
 
+    // cleanly destroy window and exit program
     endwin();
     exit(1);
     
@@ -168,19 +192,20 @@ int main(int argc, char **argv){
 void init_ncurses(){
 
     initscr();
-    cbreak();
-    noecho();
-    keypad(stdscr, true);
-    curs_set(0);
-    start_color();
-    use_default_colors();
+    cbreak(); // don't wait for return to process input
+    noecho(); // don't write input to screen
+    keypad(stdscr, true); // enable keypad on main window
+    curs_set(0); // hide cursor
+    start_color(); // enable color
+    use_default_colors(); // assign terminal defaults to -1
 
-    init_pair(1, COLOR_RED, COLOR_BLACK);
-    init_pair(2, COLOR_YELLOW, COLOR_BLACK);
-    init_pair(3, COLOR_GREEN, COLOR_BLACK);
-    init_pair(4, COLOR_CYAN, COLOR_BLACK);
-    init_pair(5, COLOR_BLUE, COLOR_BLACK);
-    init_pair(6, COLOR_MAGENTA, COLOR_BLACK);
+    // initialize colors, -1 is default terminal background
+    init_pair(1, COLOR_RED, -1);
+    init_pair(2, COLOR_YELLOW, -1);
+    init_pair(3, COLOR_GREEN, -1);
+    init_pair(4, COLOR_CYAN, -1);
+    init_pair(5, COLOR_BLUE, -1);
+    init_pair(6, COLOR_MAGENTA, -1);
 
 
 }
@@ -199,7 +224,7 @@ void draw_info_bar(window_t display){
 
     mvprintw(4, 0, "Imaginary Axis:");
     mvprintw(5, 0, "  min: %.5Lf", display.min_y);
-    mvprintw(6, 0, "  min: %.5Lf", display.max_y);
+    mvprintw(6, 0, "  max: %.5Lf", display.max_y);
 
 
 }
@@ -216,21 +241,27 @@ void draw_fractal_window(WINDOW *fractal_window, window_t display){
     wclear(fractal_window);
 
     // redraw border around window
-    wborder(fractal_window, '|', '|', '-', '-', '+', '+', '+', '+');
+    //wborder(fractal_window, '|', '|', '-', '-', '+', '+', '+', '+');
+    box(fractal_window, 0, 0);
 
     // calculate color and print
     int row, col;
     for(row = 0; row < display.screen_height; row++){
         for(col = 0; col < display.screen_width; col++){
 
+            // use screen coordinate to find corresponding number on complex plane
             complex_t c = scale(display, row, col);
 
+            // get normalized escape value
             double mu = is_in_set(c);
 
+            // if not 0, point is not in set, find color
             if(mu != 0){
 
+                // get normalized escape to be between 1 and 6 for ncurses colors
                 int color_num = (int)floor(mu) % 6 + 1;
 
+                // turn on color, write X, and turn off color
                 wattron(fractal_window, COLOR_PAIR(color_num));
                 mvwprintw(fractal_window, row+1, col+1, "X");
                 wattroff(fractal_window, COLOR_PAIR(color_num));
@@ -252,31 +283,37 @@ void draw_fractal_window(WINDOW *fractal_window, window_t display){
 ////////////////////////////////////////
 void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action){
 
+    // calculate number of units on complex planes corresponding to the width and height of one character
     long double x_cursor_units = (display->max_x - display->min_x)/display->screen_width;
     long double y_cursor_units = (display->max_y - display->min_y)/display->screen_height;
 
     switch(action){
 
+        // move fractal display left one cursor unit
         case LEFT:
             display->max_x = display->max_x - x_cursor_units;
             display->min_x = display->min_x - x_cursor_units;
         break;
 
+        // move fractal display right one cursor unit
         case RIGHT:
             display->max_x = display->max_x + x_cursor_units;
             display->min_x = display->min_x + x_cursor_units;
         break;
 
+        // move fractal display up one cursor unit
         case UP:
             display->max_y = display->max_y + y_cursor_units;
             display->min_y = display->min_y + y_cursor_units;
         break;
 
+        // move fractal display down one cursor unit
         case DOWN:
             display->max_y = display->max_y - y_cursor_units;
             display->min_y = display->min_y - y_cursor_units;
         break;
 
+        // zoom fractal display in
         // change both x and y values by x_cursor_units to maintain aspect ratio
         case ZOOM_IN:
 
@@ -288,6 +325,7 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
 
         break;
 
+        // zoom fractal display out
         case ZOOM_OUT:
             display->min_x -= x_cursor_units;
             display->max_x += x_cursor_units;
@@ -298,6 +336,7 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
 
     }
 
+    // redraw info bar and fractal window
     draw_info_bar(*display);
     draw_fractal_window(fractal_window, *display);
 
@@ -305,85 +344,113 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
 
 
 
+//////////////////////////////////////////////////////////////////////////////////
+// open_menu:                                                                   //
+//   open an ncurses menu with fields to change the current window_t parameters //
+//////////////////////////////////////////////////////////////////////////////////
 void open_menu(window_t *display){
 
+    // create ncurses window and form pointers
     WINDOW* menu_win = newwin(10, 50, 5, 5);
     FIELD *fields[5];
     FORM *form;
     int ch, rows, cols;
 
+    // define necessary fields and necessary NULL field
     fields[0] = new_field(1, 15, 1, 6, 0, 0);
     fields[1] = new_field(1, 15, 2, 6, 0, 0);
     fields[2] = new_field(1, 15, 5, 6, 0, 0);
     fields[3] = new_field(1, 15, 6, 6, 0, 0);
     fields[4] = NULL;
 
-    set_field_back(fields[0], A_UNDERLINE);
-    field_opts_off(fields[0], O_AUTOSKIP);
+    // set field options
+    int i;
+    for(i = 0; i < 4; i++){
 
-    set_field_back(fields[1], A_UNDERLINE);
-    field_opts_off(fields[1], O_AUTOSKIP);
+        set_field_back(fields[i], A_UNDERLINE); // underline field
+        field_opts_off(fields[i], O_AUTOSKIP);  // don't move to next field when full
 
-    set_field_back(fields[2], A_UNDERLINE);
-    field_opts_off(fields[2], O_AUTOSKIP);
+    }
 
-    set_field_back(fields[3], A_UNDERLINE);
-    field_opts_off(fields[3], O_AUTOSKIP);
-
+    // create string buffers for grabbing current display parameters
     char *real_min_string = malloc(15*sizeof(char));
     char *real_max_string = malloc(15*sizeof(char));
     char *imag_min_string = malloc(15*sizeof(char));
     char *imag_max_string = malloc(15*sizeof(char));
 
+    // read current display paramters
     sprintf(real_min_string, "%.5Lf", display->min_x);
     sprintf(real_max_string, "%.5Lf", display->max_x);
     sprintf(imag_min_string, "%.5LF", display->min_y);
     sprintf(imag_max_string, "%.5LF", display->max_y);
 
+    // write current display parameters to corresponding fields
     set_field_buffer(fields[0], 0, real_min_string);
     set_field_buffer(fields[1], 0, real_max_string);
     set_field_buffer(fields[2], 0, imag_min_string);
     set_field_buffer(fields[3], 0, imag_max_string);
 
+    // create form using defined fields
     form = new_form(fields);
 
+    // put the necessary size of the form subwindow into ints, rows and cols
     scale_form(form, &rows, &cols);
+
+    // create form main window using rows and cols as reference and place in center of screen
     menu_win = newwin(rows+4, cols+11, (LINES/2)-((rows+4)/2), (COLS/2)-((cols+11)/2));
+
+    // enable keypad on new window
     keypad(menu_win, TRUE);
 
+    // associate window with form
     set_form_win(form, menu_win);
+    // create required subwindow for form
     set_form_sub(form, derwin(menu_win, rows, cols, 1, 1));
 
+    // post form to window
     post_form(form);
     
+    // draw border around menu window
     box(menu_win, 0, 0);
+
+    // refresh windows and draw to display
     wrefresh(menu_win);
     refresh();
 
+    // Write field labels
     mvwprintw(menu_win, 1, 1, "Real Axis:");
     mvwprintw(menu_win, 2, 2, "min: ");
-    mvwprintw(menu_win, 3, 2, "min: ");
+    mvwprintw(menu_win, 3, 2, "max: ");
 
     mvwprintw(menu_win, 5, 1, "Imaginary Axis:");
     mvwprintw(menu_win, 6, 2, "min: ");
-    mvwprintw(menu_win, 7, 2, "min: ");
+    mvwprintw(menu_win, 7, 2, "max: ");
 
+    // write instructions to bottom of menu window
     mvwprintw(menu_win, 9, 2, "m to confirm | ESC to cancel");
     
+    // refresh menu window
     wrefresh(menu_win);
 
+    // make cursor visible
     curs_set(1);
+
+    // move cursor to end of first field
     form_driver(form, REQ_FIRST_FIELD);
     form_driver(form, REQ_END_LINE);
 
-    int done = 0;
+    int done = FALSE;
+    // loop until fields are confirmed or escape is pressed
     while(!done && (ch = wgetch(menu_win)) != 27){
         switch(ch){
+
+            // move to field above current
             case KEY_UP:
                 form_driver(form, REQ_PREV_FIELD);
                 form_driver(form, REQ_END_LINE);
             break;
 
+            // move to field below current
             case '\t':
             case '\n':
             case KEY_DOWN:
@@ -391,20 +458,24 @@ void open_menu(window_t *display){
                 form_driver(form, REQ_END_LINE);
             break;
 
+            // move cursor one character to the left
             case KEY_LEFT:
                 form_driver(form, REQ_PREV_CHAR);
             break;
 
+            // move cursor one character to the right
             case KEY_RIGHT:
                 form_driver(form, REQ_NEXT_CHAR);
             break;
 
+            // delete one character
             case KEY_BACKSPACE:
             case 127:
                 form_driver(form, REQ_PREV_CHAR);
                 form_driver(form, REQ_DEL_CHAR);
             break;
 
+            // validate fields and update display values
             case 'm':
                 form_driver(form, REQ_VALIDATION);
 
@@ -413,10 +484,11 @@ void open_menu(window_t *display){
                 display->min_y = atof(field_buffer(fields[2], 0));
                 display->max_y = atof(field_buffer(fields[3], 0));
 
-                done = 1;
+                done = TRUE;
 
             break;
 
+            // if character is a valid part of a double print to current field
             default:
                 if(isdigit(ch) || ch == '-' || ch == '.'){
                     form_driver(form, ch);
@@ -425,8 +497,10 @@ void open_menu(window_t *display){
         }
     }
 
+    // hide cursor
     curs_set(0);
 
+    // clean up ncurses objects
     unpost_form(form);
     free_form(form);
     free_field(fields[0]);
@@ -441,6 +515,10 @@ void open_menu(window_t *display){
     
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+// open_bitmap_menu:                                                             //
+//   open options menu and form for exporting currently viewed fractal to bitmap //
+///////////////////////////////////////////////////////////////////////////////////
 void open_bitmap_menu(window_t *display){
 
     // define all necessary form/menu items
@@ -450,56 +528,78 @@ void open_bitmap_menu(window_t *display){
     COLOR_PALETTE palette;
     int ch, rows, cols;
 
+    // open menu for user to choose desired color palette
     palette = open_palette_menu(display);
 
 
+    // define form fields including necessary NULL
     fields[0] = new_field(1, 15, 2, 9, 0, 0);
     fields[1] = new_field(1, 15, 3, 9, 0, 0);
     fields[2] = NULL;
 
+    // set field options
     set_field_back(fields[0], A_UNDERLINE);
     field_opts_off(fields[0], O_AUTOSKIP);
 
     set_field_back(fields[1], A_UNDERLINE);
     field_opts_off(fields[1], O_AUTOSKIP);
 
+    // set default values in fields to be 100
     set_field_buffer(fields[0], 0, "100");
     set_field_buffer(fields[1], 0, "100");
 
+    // create form using defined fields
     resolution_form = new_form(fields);
 
-    // Note: this will set rows and cols to the size of the menu subwindow, menu_window will be of size
-    // row+4 x col+4
+    // place necessary size of form subwindow into rows and cols
     scale_form(resolution_form, &rows, &cols);
+
+    // calculate menu_window size using rows and cols and place in middle of screen
     menu_win = newwin(rows+4, cols+8, (LINES/2)-((rows+4)/2), (COLS/2)-((cols+4))/2);
+
+    // enable keypad on menu window
     keypad(menu_win, TRUE);
 
+    // associate menu_window with form
     set_form_win(resolution_form, menu_win);
+
+    // associate subwindow with form
     set_form_sub(resolution_form, derwin(menu_win, rows, cols, 1, 1));
 
+    // draw border around menu window
     box(menu_win, 0, 0);
 
+    // post form to window
     post_form(resolution_form);
 
+    // write instructions and field labels to menu window
     mvwprintw(menu_win, 1, ((cols+8)/2)-7, "Bitmap Export");
     mvwprintw(menu_win, 3, 3, "Width: ");
     mvwprintw(menu_win, 4, 2, "Height: ");
     mvwprintw(menu_win, rows+2, ((cols+8)/2)-14, "~ to confirm | ESC to cancel");
 
+    // refresh and redraw windows
     wrefresh(menu_win);
     refresh();
 
+    // move cursor to end of first field
     form_driver(resolution_form, REQ_FIRST_FIELD);
     form_driver(resolution_form, REQ_END_LINE);
+
+    // show cursor
     curs_set(1);
 
-    int done = 0;
+    int done = FALSE;
+    // loop until user cancels or confirms resolution choice
     while(!done && (ch = wgetch(menu_win)) != 27){
+
+        // handle keyboard input
         switch(ch){
 
             int image_width, image_height;
 
             // ascii codes for '`' and '~' respectively
+            // validate values in current fields and draw bitmap of that size using chosen palette
             case 96:
             case 126:
 
@@ -510,10 +610,11 @@ void open_bitmap_menu(window_t *display){
                 image_height = atoi(field_buffer(fields[1], 0));
                 draw_bitmap(*display, image_width, image_height, palette);
 
-                done = 1;
+                done = TRUE;
                 
             break;
 
+            // tab, return, or down arrow will move to next field
             case '\t':
             case '\n':
             case KEY_DOWN:
@@ -523,6 +624,7 @@ void open_bitmap_menu(window_t *display){
 
             break;
 
+            // move to previous field
             case KEY_UP:
 
                 form_driver(resolution_form, REQ_PREV_FIELD);
@@ -530,18 +632,21 @@ void open_bitmap_menu(window_t *display){
 
             break;
 
+            // move cursor to previous character
             case KEY_LEFT:
 
                 form_driver(resolution_form, REQ_PREV_CHAR);
 
             break;
 
+            // move cursor to next character
             case KEY_RIGHT:
 
                 form_driver(resolution_form, REQ_NEXT_CHAR);
 
             break;
 
+            // delete previous character
             case KEY_BACKSPACE:
             case 127:
 
@@ -550,12 +655,14 @@ void open_bitmap_menu(window_t *display){
 
             break;
 
+            // delete current character
             case KEY_DC:
 
                 form_driver(resolution_form, REQ_DEL_CHAR);
 
             break;
 
+            // if input is digit, write to current field
             default:
 
                 if(isdigit(ch)){
@@ -566,8 +673,10 @@ void open_bitmap_menu(window_t *display){
         }
     }
 
+    // hide cursor
     curs_set(0);
 
+    // clean up ncurses objects
     unpost_form(resolution_form);
     free_form(resolution_form);
     free_field(fields[0]);
@@ -577,8 +686,14 @@ void open_bitmap_menu(window_t *display){
 
 }
 
+//////////////////////////////////////////////////////////////////////////
+// open_palette_menu:                                                   //
+//   open menu for user to pick desired color palette for bitmap export //
+//   returns COLOR_PALETTE enum corresponding to user choice            //
+//////////////////////////////////////////////////////////////////////////
 COLOR_PALETTE open_palette_menu(window_t *display){
 
+    // define ncurses objects
     WINDOW *palette_window;
     ITEM **palette_items;
     ITEM *choice;
@@ -598,13 +713,17 @@ COLOR_PALETTE open_palette_menu(window_t *display){
         "Ocean"
     };
 
+    // allocate memory for menu items
     palette_items = NULL;
     palette_items = malloc(n_choices * sizeof(ITEM *));
 
+    // create new menu items using each string in choices
     int i;
     for(i = 0; i < n_choices; i++){
         palette_items[i] = new_item(choices[i], choices[i]);
     }
+
+    // define a null item to signify end of item list
     palette_items[i] = NULL;
 
     // create menu
@@ -639,14 +758,17 @@ COLOR_PALETTE open_palette_menu(window_t *display){
         ch = wgetch(palette_window);
         switch(ch){
 
+            // move selection down
             case KEY_DOWN:
                 menu_driver(palette_menu, REQ_DOWN_ITEM);
             break;
 
+            // move selection up
             case KEY_UP:
                 menu_driver(palette_menu, REQ_UP_ITEM);
             break;
 
+            // select currently highlighted item
             case '\n':
 
                 // set choice to item currently highlighted in menu
@@ -670,7 +792,7 @@ COLOR_PALETTE open_palette_menu(window_t *display){
         }
     }
 
-    // clean up menu
+    // clean up ncurses objects
     unpost_menu(palette_menu);
     for(i = 0; i < n_choices; i++){
         free_item(palette_items[i]);
@@ -763,14 +885,16 @@ long double complex_magnitude(complex_t x){
 complex_t scale(window_t display, int row, int col){
 
     // window coords include border so subtract from row and column values to get actual coord on plane
-    int actual_x = col - 1;
-    int actual_y = row - 1;
+    int actual_x = col;
+    int actual_y = row;
 
     complex_t c;
 
+    // calculate number of complex units corresponding to one cursor width or height
     long double x_cursor_units = (display.max_x - display.min_x)/display.screen_width;
     long double y_cursor_units = (display.max_y - display.min_y)/display.screen_height;
 
+    // calculate position on complex plane relative to position on display
     c.a = display.min_x + (actual_x * x_cursor_units);
     c.b = display.max_y - (actual_y * y_cursor_units);
 
@@ -782,9 +906,10 @@ complex_t scale(window_t display, int row, int col){
 
 ///////////////////////////////////////////////////////////////////////////////
 // is_in_set:                                                                //
-//   return 0 if complex_t c is in the mandelbrot set and mu otherwise       //
+//   return 0 if complex_t c is in the mandelbrot set and mu, a normalized   //
+//   valued related to the escape time of the recursive function             //
+//   this is used in calculating the color of each coordinate                //
 ///////////////////////////////////////////////////////////////////////////////
-// TODO: this is not to the lab specification, consider creating an exit_value function or sumpin
 double is_in_set(complex_t c){
 
     // initial z set to 0
@@ -792,23 +917,31 @@ double is_in_set(complex_t c){
     z.a = 0;
     z.b = 0;
 
+    // set escape radius to 2
     double escape_r = 2.0;
     double mu;
 
+    // i is iterations completed
     int i = 0;
-    while(1){
+    while(i <= MAX_ITERATIONS){
+
+        // iterate z value and store result
         z = complex_add(complex_multiply(z, z), c);
+
+        // increment iteration counter
         i++;
         double mag = complex_magnitude(z);
+
+        // if mag is greater than escape radius point is not in set, end loop
         if (mag > escape_r){
-            break;
-        }
-        if(i > MAX_ITERATIONS){
             break;
         }
     }
 
+    // if c is in set calculate mu, normalized escape value
     if(i < MAX_ITERATIONS){
+
+        // complete a couple more iterations of z to get cleaner mu value
         z = complex_add(complex_multiply(z, z), c);
         i++;
         z = complex_add(complex_multiply(z, z), c);
@@ -817,15 +950,21 @@ double is_in_set(complex_t c){
         double mag = complex_magnitude(z);
         mu = i - ( log( log(mag) ) / log(2.0) );
 
+        // handle occasional NaN results from calculation
         if(isnan(mu)){
             mu = 0;
         }
 
+        // handle negative mu values
         if(mu < 0){
             mu *= -1;
         }
+
     }else{
+
+        // else set mu to exactly zero
         mu = 0;
+
     }
 
     return mu;
