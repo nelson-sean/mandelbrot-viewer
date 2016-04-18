@@ -8,7 +8,7 @@
 #include <string.h>
 
 #define BARSIZE 18
-#define MAX_ITERATIONS 1000
+#define MAX_ITERATIONS 100
 
 ///////////////////////////
 // Structure definitions //
@@ -46,7 +46,8 @@ typedef enum {
     GOLDEN_PURPLE = 0,
     PASTEL_RAINBOW = 1,
     SCARLET_GRAY = 2,
-    OCEAN = 3
+    OCEAN = 3,
+    EARTH = 4
 }COLOR_PALETTE;
 
 //////////////////////////
@@ -700,7 +701,7 @@ COLOR_PALETTE open_palette_menu(window_t *display){
     MENU *palette_menu;
     COLOR_PALETTE palette;
     int ch, done;
-    int n_choices = 4;
+    int n_choices = 5;
 
     // default value in case of error somewhere
     palette = GOLDEN_PURPLE;
@@ -710,12 +711,13 @@ COLOR_PALETTE open_palette_menu(window_t *display){
         "Golden Purple",
         "Pastel Rainbow",
         "Scarlet and Gray",
-        "Ocean"
+        "Ocean",
+        "Earth"
     };
 
     // allocate memory for menu items
     palette_items = NULL;
-    palette_items = malloc(n_choices * sizeof(ITEM *));
+    palette_items = malloc((n_choices+1) * sizeof(ITEM *));
 
     // create new menu items using each string in choices
     int i;
@@ -1056,6 +1058,7 @@ void draw_bitmap(window_t display, int image_width, int image_height, COLOR_PALE
 
                     // 4 color palettes
                     case PASTEL_RAINBOW:
+                    case EARTH:
 
                         color1 = (int)floor(mu) % 12;
                         color2 = ((int)floor(mu)+1) % 12;
@@ -1143,6 +1146,12 @@ unsigned char **create_palette(COLOR_PALETTE colors){
     unsigned char o_turquoise[] = {0x4d, 0x67, 0x0b};
     unsigned char o_marine[] = {0x43, 0x45, 0x0a};
 
+    // EARTH colors
+    unsigned char e_darkgreen[] = {0x00, 0x4d, 0x33};
+    unsigned char e_lightgreen[] = {0x18, 0x9e, 0x90};
+    unsigned char e_beige[] = {0x74, 0x85, 0xa1};
+    unsigned char e_brown[] = {0x2a, 0x43, 0x77};
+
     // final palette to be returned
     unsigned char **palette;
 
@@ -1222,6 +1231,23 @@ unsigned char **create_palette(COLOR_PALETTE colors){
 
         break;
 
+        case EARTH:
+
+            palette = malloc(12 * sizeof(unsigned char*));
+
+            palette1 = get_gradient_palette(e_beige, e_brown, 4);
+            palette2 = get_gradient_palette(e_brown, e_lightgreen, 4);
+            palette3 = get_gradient_palette(e_lightgreen, e_darkgreen, 4);
+            for(i = 0; i < 4; i++){
+
+                palette[i] = palette1[i];
+                palette[i+4] = palette2[i];
+                palette[i+8] = palette3[i];
+
+            }
+
+        break;
+
     }
 
     palette1 = NULL;
@@ -1260,6 +1286,7 @@ void free_palette(unsigned char **palette, COLOR_PALETTE colors){
 
         // 12 color palettes
         case PASTEL_RAINBOW:
+        case EARTH:
 
             for(i = 0; i < 12; i++){
                 free(palette[i]);
