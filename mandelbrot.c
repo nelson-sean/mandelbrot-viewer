@@ -66,10 +66,11 @@ double is_in_set(complex_t c);
 void open_menu(window_t *display);
 void open_bitmap_menu(window_t *display);
 COLOR_PALETTE open_palette_menu(window_t *display);
-void draw_bitmap(window_t display, int image_width, int image_height, COLOR_PALETTE colors);
+void draw_bitmap(char *file_name, window_t display, int image_width, int image_height, COLOR_PALETTE colors);
 unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char color2[3], int samples);
 unsigned char **create_palette(COLOR_PALETTE colors);
 void free_palette(unsigned char **palette, COLOR_PALETTE colors);
+void trim_string(char *string);
 
 
 ///////////////////////////////////////
@@ -524,7 +525,7 @@ void open_bitmap_menu(window_t *display){
 
     // define all necessary form/menu items
     WINDOW *menu_win = newwin(10, 50, COLS/2, LINES/2);
-    FIELD *fields[3];
+    FIELD *fields[4];
     FORM *resolution_form;
     COLOR_PALETTE palette;
     int ch, rows, cols;
@@ -532,22 +533,25 @@ void open_bitmap_menu(window_t *display){
     // open menu for user to choose desired color palette
     palette = open_palette_menu(display);
 
-
     // define form fields including necessary NULL
-    fields[0] = new_field(1, 15, 2, 9, 0, 0);
-    fields[1] = new_field(1, 15, 3, 9, 0, 0);
-    fields[2] = NULL;
+    fields[0] = new_field(1, 15, 2, 11, 0, 0);
+    fields[1] = new_field(1, 15, 3, 11, 0, 0);
+    fields[2] = new_field(1, 15, 5, 11, 0, 0);
+    fields[3] = NULL;
 
     // set field options
-    set_field_back(fields[0], A_UNDERLINE);
-    field_opts_off(fields[0], O_AUTOSKIP);
+    int i;
+    for(i = 0; i < 3; i++){
 
-    set_field_back(fields[1], A_UNDERLINE);
-    field_opts_off(fields[1], O_AUTOSKIP);
+        set_field_back(fields[i], A_UNDERLINE);
+        field_opts_off(fields[i], O_AUTOSKIP);
+
+    }
 
     // set default values in fields to be 100
     set_field_buffer(fields[0], 0, "100");
     set_field_buffer(fields[1], 0, "100");
+    set_field_buffer(fields[2], 0, "fractal.bmp");
 
     // create form using defined fields
     resolution_form = new_form(fields);
@@ -556,7 +560,7 @@ void open_bitmap_menu(window_t *display){
     scale_form(resolution_form, &rows, &cols);
 
     // calculate menu_window size using rows and cols and place in middle of screen
-    menu_win = newwin(rows+4, cols+8, (LINES/2)-((rows+4)/2), (COLS/2)-((cols+4))/2);
+    menu_win = newwin(rows+4, cols+8, (LINES/2)-((rows+4)/2), (COLS/2)-((cols+8))/2);
 
     // enable keypad on menu window
     keypad(menu_win, TRUE);
@@ -575,8 +579,9 @@ void open_bitmap_menu(window_t *display){
 
     // write instructions and field labels to menu window
     mvwprintw(menu_win, 1, ((cols+8)/2)-7, "Bitmap Export");
-    mvwprintw(menu_win, 3, 3, "Width: ");
-    mvwprintw(menu_win, 4, 2, "Height: ");
+    mvwprintw(menu_win, 3, 5, "Width: ");
+    mvwprintw(menu_win, 4, 4, "Height: ");
+    mvwprintw(menu_win, 6, 2, "Filename: ");
     mvwprintw(menu_win, rows+2, ((cols+8)/2)-14, "~ to confirm | ESC to cancel");
 
     // refresh and redraw windows
@@ -598,6 +603,7 @@ void open_bitmap_menu(window_t *display){
         switch(ch){
 
             int image_width, image_height;
+            char *file_name;
 
             // ascii codes for '`' and '~' respectively
             // validate values in current fields and draw bitmap of that size using chosen palette
@@ -609,7 +615,11 @@ void open_bitmap_menu(window_t *display){
 
                 image_width = atoi(field_buffer(fields[0], 0));
                 image_height = atoi(field_buffer(fields[1], 0));
-                draw_bitmap(*display, image_width, image_height, palette);
+
+                file_name = field_buffer(fields[2], 0);
+                trim_string(file_name);
+
+                draw_bitmap(file_name, *display, image_width, image_height, palette);
 
                 done = TRUE;
                 
@@ -666,9 +676,7 @@ void open_bitmap_menu(window_t *display){
             // if input is digit, write to current field
             default:
 
-                if(isdigit(ch)){
-                    form_driver(resolution_form, ch);
-                }
+                form_driver(resolution_form, ch);
 
             break;
         }
@@ -975,7 +983,7 @@ double is_in_set(complex_t c){
 
 
 
-void draw_bitmap(window_t display, int image_width, int image_height, COLOR_PALETTE colors){
+void draw_bitmap(char *file_name, window_t display, int image_width, int image_height, COLOR_PALETTE colors){
 
     window_t bitmap_window;
 
@@ -989,7 +997,7 @@ void draw_bitmap(window_t display, int image_width, int image_height, COLOR_PALE
 
 
     FILE *image;
-    image = fopen("fractal.bmp", "wb");
+    image = fopen(file_name, "wb");
 
     if(image == NULL){
         printf("error opening file for writing\n");
@@ -1297,5 +1305,17 @@ void free_palette(unsigned char **palette, COLOR_PALETTE colors){
     }
 
     free(palette);
+
+}
+
+void trim_string(char *string){
+
+    int i;
+    for(i = 0; i < strlen(string); i++){
+        if(isspace(string[i])){
+            string[i] = '\0';
+            break;
+        }
+    }
 
 }
