@@ -371,7 +371,7 @@ void open_menu(window_t *display){
     FORM *form;
     int ch, rows, cols;
 
-    // define necessary fields and necessary NULL field
+    // define necessary fields and terminating NULL field
     fields[0] = new_field(1, 15, 1, 6, 0, 0);
     fields[1] = new_field(1, 15, 2, 6, 0, 0);
     fields[2] = new_field(1, 15, 5, 6, 0, 0);
@@ -500,6 +500,13 @@ void open_menu(window_t *display){
                 display->max_y = atof(field_buffer(fields[3], 0));
 
                 done = TRUE;
+
+            break;
+
+            case KEY_RESIZE:
+
+                display->screen_height  = LINES - 2;
+                display->screen_width = COLS-BARSIZE-2;
 
             break;
 
@@ -686,6 +693,13 @@ void open_bitmap_menu(window_t *display){
 
             break;
 
+            case KEY_RESIZE:
+
+                display->screen_height = LINES - 2;
+                display->screen_width = COLS - BARSIZE - 2;
+
+            break;
+
             // if input is digit, write to current field
             default:
 
@@ -797,6 +811,14 @@ COLOR_PALETTE open_palette_menu(window_t *display){
                 // set choice to item currently highlighted in menu
                 choice = current_item(palette_menu);
                 done = TRUE;
+
+            break;
+
+            // handle terminal resize event
+            case KEY_RESIZE:
+
+                display->screen_height = LINES - 2;
+                display->screen_width = COLS - BARSIZE - 2;
 
             break;
 
