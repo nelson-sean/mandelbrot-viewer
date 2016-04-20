@@ -302,6 +302,9 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
     long double x_cursor_units = (display->max_x - display->min_x)/display->screen_width;
     long double y_cursor_units = (display->max_y - display->min_y)/display->screen_height;
 
+    // used in aspect ratio calculations when zooming
+    long double x_length, y_length, x_diff, aspect;
+
     switch(action){
 
         // move fractal display left one cursor unit
@@ -329,24 +332,40 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
         break;
 
         // zoom fractal display in
-        // change both x and y values by x_cursor_units to maintain aspect ratio
         case ZOOM_IN:
 
-            display->min_x += x_cursor_units;
-            display->max_x -= x_cursor_units;
+            aspect = (display->max_x - display->min_x) / (display->max_y - display->min_y);
 
-            display->min_y += x_cursor_units;
-            display->max_y -= x_cursor_units;
+            display->min_y += y_cursor_units;
+            display->max_y -= y_cursor_units;
+
+            // calculate real axis values to maintain current aspect ratio
+            y_length = display->max_y - display->min_y;
+            x_length = y_length * aspect;
+
+            x_diff = (display->max_x - display->min_x) - x_length;
+            display->min_x += (x_diff/2);
+            display->max_x -= (x_diff/2);
+
 
         break;
 
         // zoom fractal display out
         case ZOOM_OUT:
-            display->min_x -= x_cursor_units;
-            display->max_x += x_cursor_units;
 
-            display->min_y -= x_cursor_units;
-            display->max_y += x_cursor_units;
+            aspect = (display->max_x - display->min_x) / (display->max_y - display->min_y);
+
+            display->min_y -= y_cursor_units;
+            display->max_y += y_cursor_units;
+
+            // calculate new real axis values to maintain current aspect ratio (3:2)
+            y_length = display->max_y - display->min_y;
+            x_length = y_length * aspect;
+
+            x_diff = x_length - (display->max_x - display->min_x);
+            display->min_x -= (x_diff/2);
+            display->max_x += (x_diff/2);
+
         break;
 
     }
