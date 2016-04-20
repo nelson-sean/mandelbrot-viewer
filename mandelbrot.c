@@ -391,10 +391,10 @@ void open_menu(window_t *display){
     int ch, rows, cols;
 
     // define necessary fields and terminating NULL field
-    fields[0] = new_field(1, 15, 1, 6, 0, 0);
-    fields[1] = new_field(1, 15, 2, 6, 0, 0);
-    fields[2] = new_field(1, 15, 5, 6, 0, 0);
-    fields[3] = new_field(1, 15, 6, 6, 0, 0);
+    fields[0] = new_field(1, 15, 1, 9, 0, 0);
+    fields[1] = new_field(1, 15, 2, 9, 0, 0);
+    fields[2] = new_field(1, 15, 5, 9, 0, 0);
+    fields[3] = new_field(1, 15, 6, 9, 0, 0);
     fields[4] = NULL;
 
     // set field options
@@ -452,13 +452,13 @@ void open_menu(window_t *display){
     refresh();
 
     // Write field labels
-    mvwprintw(menu_win, 1, 1, "Real Axis:");
-    mvwprintw(menu_win, 2, 2, "min: ");
-    mvwprintw(menu_win, 3, 2, "max: ");
+    mvwprintw(menu_win, 1, 3, "Real Axis:");
+    mvwprintw(menu_win, 2, 5, "min: ");
+    mvwprintw(menu_win, 3, 5, "max: ");
 
-    mvwprintw(menu_win, 5, 1, "Imaginary Axis:");
-    mvwprintw(menu_win, 6, 2, "min: ");
-    mvwprintw(menu_win, 7, 2, "max: ");
+    mvwprintw(menu_win, 5, 3, "Imaginary Axis:");
+    mvwprintw(menu_win, 6, 5, "min: ");
+    mvwprintw(menu_win, 7, 5, "max: ");
 
     // write instructions to bottom of menu window
     mvwprintw(menu_win, 9, 2, "m to confirm | ESC to cancel");
@@ -786,7 +786,7 @@ COLOR_PALETTE open_palette_menu(window_t *display){
     palette_menu = new_menu(palette_items);
 
     // create window for menu
-    palette_window = newwin(10, 26, (LINES/2)-5, (COLS/2)-13);
+    palette_window = newwin(12, 26, (LINES/2)-6, (COLS/2)-13);
     keypad(palette_window, TRUE);
 
     // associate menu's main and subwindow
