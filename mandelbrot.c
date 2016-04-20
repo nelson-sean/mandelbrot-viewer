@@ -170,6 +170,19 @@ int main(int argc, char **argv){
 
             break;
 
+            // handle terminal resize event
+            case KEY_RESIZE:
+
+                display.screen_height  = LINES - 2;
+                display.screen_width = COLS-BARSIZE-2;
+
+                wresize(fractal_window, LINES, COLS-BARSIZE);
+
+                draw_info_bar(display);
+                draw_fractal_window(fractal_window, display);
+
+            break;
+
             // capture ascii code for escape key
             case 27:
                 quit = TRUE;
