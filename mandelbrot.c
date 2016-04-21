@@ -47,7 +47,10 @@ typedef enum {
     PASTEL_RAINBOW = 1,
     SCARLET_GRAY = 2,
     OCEAN = 3,
-    EARTH = 4
+    EARTH = 4,
+    HIGHLIGHTERS = 5,
+    GRAY_SCALE = 6,
+    MATRIX = 7
 }COLOR_PALETTE;
 
 //////////////////////////
@@ -755,7 +758,7 @@ COLOR_PALETTE open_palette_menu(window_t *display){
     MENU *palette_menu;
     COLOR_PALETTE palette;
     int ch, done;
-    int n_choices = 5;
+    int n_choices = 8;
 
     // default value in case of error somewhere
     palette = GOLDEN_PURPLE;
@@ -766,7 +769,10 @@ COLOR_PALETTE open_palette_menu(window_t *display){
         "Pastel Rainbow",
         "Scarlet and Gray",
         "Ocean",
-        "Earth"
+        "Earth",
+        "Highlighters",
+        "Gray Scale",
+        "Matrix"
     };
 
     // allocate memory for menu items
@@ -786,7 +792,7 @@ COLOR_PALETTE open_palette_menu(window_t *display){
     palette_menu = new_menu(palette_items);
 
     // create window for menu
-    palette_window = newwin(12, 26, (LINES/2)-6, (COLS/2)-13);
+    palette_window = newwin(14, 26, (LINES/2)-7, (COLS/2)-13);
     keypad(palette_window, TRUE);
 
     // associate menu's main and subwindow
@@ -1102,15 +1108,18 @@ void draw_bitmap(char *file_name, window_t display, int image_width, int image_h
                 int color1, color2;
                 switch(colors){
 
-                    // 3 color palettes
+                    // 8 color palettes
                     case GOLDEN_PURPLE:
                     case SCARLET_GRAY:
+                    case GRAY_SCALE:
+                    case MATRIX:
 
                         color1 = (int)floor(mu) % 8;
                         color2 = ((int)floor(mu) + 1) % 8;
 
                     break;
 
+                    // 9 color palettes
                     case OCEAN:
 
                         color1 = (int)floor(mu) % 9;
@@ -1118,9 +1127,10 @@ void draw_bitmap(char *file_name, window_t display, int image_width, int image_h
 
                     break;
 
-                    // 4 color palettes
+                    // 12 color palettes
                     case PASTEL_RAINBOW:
                     case EARTH:
+                    case HIGHLIGHTERS:
 
                         color1 = (int)floor(mu) % 12;
                         color2 = ((int)floor(mu)+1) % 12;
@@ -1213,6 +1223,21 @@ unsigned char **create_palette(COLOR_PALETTE colors){
     unsigned char e_lightgreen[] = {0x18, 0x9e, 0x90};
     unsigned char e_beige[] = {0x74, 0x85, 0xa1};
     unsigned char e_brown[] = {0x2a, 0x43, 0x77};
+
+    // HIGHLIGHTERS colors
+    unsigned char h_yellow[] = {0x15, 0xf3, 0xf3};
+    unsigned char h_green[] = {0x2c, 0xf5, 0x83};
+    unsigned char h_pink[] = {0x99, 0x00, 0xff};
+    unsigned char h_purple[] = {0xd0, 0x0d, 0x6e};
+
+    // GRAY_SCALE colors
+    unsigned char gs_white[] = {0xff, 0xff, 0xff};
+    unsigned char gs_gray[] = {0x33, 0x33, 0x33};
+
+    // MATRIX colors
+    unsigned char m_green1[] = {0x48, 0xe1, 0x02};
+    unsigned char m_green2[] = {0x13, 0x62, 0x08};
+    unsigned char m_green3[] = {0x0b, 0x4a, 0x04};
 
     // final palette to be returned
     unsigned char **palette;
@@ -1310,7 +1335,46 @@ unsigned char **create_palette(COLOR_PALETTE colors){
 
         break;
 
+        case HIGHLIGHTERS:
+
+            palette = malloc(12 * sizeof(unsigned char*));
+
+            palette1 = get_gradient_palette(h_green, h_yellow, 4);
+            palette2 = get_gradient_palette(h_yellow, h_pink, 4);
+            palette3 = get_gradient_palette(h_pink, h_purple, 4);
+            for(i = 0; i < 4; i++){
+
+                palette[i] = palette1[i];
+                palette[i+4] = palette2[i];
+                palette[i+8] = palette3[i];
+
+            }
+
+        break;
+
+        case GRAY_SCALE:
+
+            palette = get_gradient_palette(gs_white, gs_gray, 8);
+
+        break;
+
+        case MATRIX:
+
+            palette = malloc(8 * sizeof(unsigned char*));
+
+            palette1 = get_gradient_palette(m_green3, m_green2, 4);
+            palette2 = get_gradient_palette(m_green2, m_green1, 4);
+            for(i = 0; i < 4; i++){
+
+                palette[i] = palette1[i];
+                palette[i+4] = palette2[i];
+
+            }
+
+        break;
+
     }
+    
 
     palette1 = NULL;
     palette2 = NULL;
@@ -1328,6 +1392,8 @@ void free_palette(unsigned char **palette, COLOR_PALETTE colors){
         // 8 color palettes
         case GOLDEN_PURPLE:
         case SCARLET_GRAY:
+        case GRAY_SCALE:
+        case MATRIX:
 
             for(i = 0; i < 8; i++){
                 free(palette[i]);
@@ -1349,6 +1415,7 @@ void free_palette(unsigned char **palette, COLOR_PALETTE colors){
         // 12 color palettes
         case PASTEL_RAINBOW:
         case EARTH:
+        case HIGHLIGHTERS:
 
             for(i = 0; i < 12; i++){
                 free(palette[i]);
