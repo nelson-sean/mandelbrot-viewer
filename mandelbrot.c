@@ -525,6 +525,7 @@ void open_menu(window_t *display){
 
             break;
 
+            // handle terminal resize event
             case KEY_RESIZE:
 
                 display->screen_height  = LINES - 2;
@@ -715,6 +716,7 @@ void open_bitmap_menu(window_t *display){
 
             break;
 
+            // handle terminal resize event
             case KEY_RESIZE:
 
                 display->screen_height = LINES - 2;
@@ -862,7 +864,7 @@ COLOR_PALETTE open_palette_menu(window_t *display){
         }
     }
 
-    // clean up ncurses objects
+    // clean up ncurses memory
     unpost_menu(palette_menu);
     for(i = 0; i < n_choices; i++){
         free_item(palette_items[i]);
@@ -1043,32 +1045,42 @@ double is_in_set(complex_t c){
 
 
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+// draw_bitmap:                                                                                         //
+//   using current fractal display values, construct a bitmap of the specified width and height using a //
+//   defined color palette and save it to the given file name                                           //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 void draw_bitmap(char *file_name, window_t display, int image_width, int image_height, COLOR_PALETTE colors){
 
+    // define new window to use with scale() function
     window_t bitmap_window;
 
+    // use axis values from display
     bitmap_window.min_x = display.min_x;
     bitmap_window.max_x = display.max_x;
     bitmap_window.min_y = display.min_y;
     bitmap_window.max_y = display.max_y;
 
+    // use image height and width for window height/width
     bitmap_window.screen_height = image_height;
     bitmap_window.screen_width = image_width;
 
 
+    // open file for writing
     FILE *image;
     image = fopen(file_name, "wb");
 
+    // detect a failure to open file
     if(image == NULL){
         printf("error opening file for writing\n");
         exit(1);
     }
 
+    // calculate number of bytes per row and necessary number of padding bytes for bitmap
     int bytes_per_row = (((24 * bitmap_window.screen_width) + 31) / 32) * 4;
     int padding_bytes = bytes_per_row - (bitmap_window.screen_width * 3);
 
     // write BMP header
-
     char id[2] = {'B', 'M'};
     int size = bytes_per_row * bitmap_window.screen_height;
     short reserved = 0;
@@ -1094,17 +1106,22 @@ void draw_bitmap(char *file_name, window_t display, int image_width, int image_h
 
     unsigned char **palette = create_palette(colors);
     
-    // smooth coloring experiment
+    // calculate whether pixel is in set and it's color
     int row, col;
     for(row = bitmap_window.screen_height - 1; row >= 0; row--){
         for(col = 0; col < bitmap_window.screen_width; col++){
 
+            // scale pixel location to position on complex plane
             complex_t c = scale(bitmap_window, row, col);
 
+            // get mu value for c
             double mu = is_in_set(c);
 
+            // if not zero c is not in set so calculate color
             if(mu != 0){
 
+                // get index for two adjacent colors in palette relating to mu
+                // palettes are of different sizes so different modulo operators are necessary
                 int color1, color2;
                 switch(colors){
 
@@ -1139,6 +1156,7 @@ void draw_bitmap(char *file_name, window_t display, int image_width, int image_h
 
                 }
 
+                // get final pixel color by linear interpolation between palette values
                 double blue = palette[color1][0] + ((palette[color2][0]-palette[color1][0]) * (mu-floor(mu)));
                 double green = palette[color1][1] + ((palette[color2][1]-palette[color1][1]) * (mu-floor(mu)));
                 double red = palette[color1][2] + ((palette[color2][2]-palette[color1][2]) * (mu-floor(mu)));
@@ -1147,37 +1165,68 @@ void draw_bitmap(char *file_name, window_t display, int image_width, int image_h
                 unsigned char r = round(red);
                 char color[] = {b, g, r};
 
+                // write pixel to image using calculated color
                 fwrite(&color, 1, 3, image);
 
-            }else{
+            }else{ // c is in set, draw black
                 char black[] = {0, 0, 0};
                 fwrite(&black, 1, 3, image);
             }
         }
 
+        // write padding zeros to each row to reach 4 byte boundaries
         unsigned char zero = 0x0;
         fwrite(&zero, 1, padding_bytes, image);
 
     }
 
 
+    // free color palette memory and close file
     free_palette(palette, colors);
     fclose(image);
 }
 
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// get_gradient_palette:
+//   given two RGB color values as char arrays linearly interpolate *samples* amount of colors between //
+//   them resulting in a gradient                                                                      //
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char color2[3], int samples){
 
+    // define palette
     unsigned char **palette;
 
+    // allocate memory for palette
     palette = malloc(samples * sizeof(unsigned char*));
+
+    // check for successful allocation, exit on failure
+    if(palette == NULL){
+
+        printf("error allocating memory for gradeent palette\n");
+        exit(1);
+
+    }
 
     int i;
     for(i = 0; i < samples; i++){
 
+        // allocate memory for each RGB color
         palette[i] = malloc(3 * sizeof(unsigned char));
 
+        // check for successful allocation and exit on failure
+        if(palette[i] == NULL){
+
+            printf("error allocating memory for color\n");
+            exit(1);
+
+        }
+
+        // percent difference between first and second color
         double progress = (1.0/samples) * i;
 
+        // calculate RGB values based on progress
         double blue = color1[0] + ((color2[0] - color1[0]) * progress);
         double green = color1[1] + ((color2[1] - color1[1]) * progress);
         double red = color1[2] + ((color2[2] - color1[2]) * progress);
@@ -1185,6 +1234,7 @@ unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char colo
         unsigned char g = round(green);
         unsigned char r = round(red);
 
+        // define color in memory
         palette[i][0] = b;
         palette[i][1] = g;
         palette[i][2] = r;
@@ -1194,6 +1244,12 @@ unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char colo
 
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////
+// create_palette:                                                        //
+//   create a color palette corresponding to the given COLOR_PALETTE enum //
+////////////////////////////////////////////////////////////////////////////
 unsigned char **create_palette(COLOR_PALETTE colors){
 
     // GOLDEN_PURPLE colors
@@ -1251,14 +1307,25 @@ unsigned char **create_palette(COLOR_PALETTE colors){
     int i;
     
 
+    // construct palette
     switch(colors){
 
         case GOLDEN_PURPLE:
 
+            // allocate palette memory
             palette = malloc(8 * sizeof(unsigned char*));
+
+            // check for successful allocation, exit on failure
+            if(palette == NULL){
+                printf("error allocating memory for palette\n");
+                exit(1);
+            }
             
+            // get intermediate gradients between colors
             palette1 = get_gradient_palette(gp_gold, gp_purple, 4);
             palette2 = get_gradient_palette(gp_purple, gp_blue, 4);
+
+            // put gradients into final palette
             for(i=0; i < 4; i++){
 
                 palette[i] = palette1[i];
@@ -1270,12 +1337,21 @@ unsigned char **create_palette(COLOR_PALETTE colors){
 
         case PASTEL_RAINBOW:
 
+            // allocate palette memory
             palette = malloc(12 * sizeof(unsigned char*));
 
+            // check for successful allocation, exit on failure
+            if(palette == NULL){
+                printf("error allocating memory for palette\n");
+                exit(1);
+            }
+
+            // get intermediate gradients between colors
             palette1 = get_gradient_palette(pr_blue, pr_red, 4);
             palette2 = get_gradient_palette(pr_red, pr_yellow, 4);
             palette3 = get_gradient_palette(pr_yellow, pr_green, 4);
 
+            // put gradients into final palette
             for(i = 0; i < 4; i++){
 
                 palette[i] = palette1[i];
@@ -1288,10 +1364,21 @@ unsigned char **create_palette(COLOR_PALETTE colors){
 
         case SCARLET_GRAY:
 
+            // allocate palette memory
             palette = malloc(8 * sizeof(unsigned char*));
 
+            // check for successful allocation, exit on failure
+            if(palette == NULL){
+                printf("error allocating memory for palette\n");
+                exit(1);
+            }
+
+
+            // get intermediate gradients between colors
             palette1 = get_gradient_palette(sg_gray, sg_red, 4);
             palette2 = get_gradient_palette(sg_red, sg_white, 4);
+
+            // put gradients into final palette
             for(i=0; i < 4; i++){
 
                 palette[i] = palette1[i];
@@ -1303,11 +1390,22 @@ unsigned char **create_palette(COLOR_PALETTE colors){
 
         case OCEAN:
 
+            // allocate palette memory
             palette = malloc(9 * sizeof(unsigned char*));
 
+            // check for successful allocation, exit on failure
+            if(palette == NULL){
+                printf("error allocating memory for palette\n");
+                exit(1);
+            }
+
+
+            // get intermediate gradients between colors
             palette1 = get_gradient_palette(o_lightgreen, o_bluegreen, 3);
             palette2 = get_gradient_palette(o_bluegreen, o_turquoise, 3);
             palette3 = get_gradient_palette(o_turquoise, o_marine, 3);
+
+            // put gradients into final palette
             for(i = 0; i < 3; i++){
 
                 palette[i] = palette1[i];
@@ -1320,11 +1418,22 @@ unsigned char **create_palette(COLOR_PALETTE colors){
 
         case EARTH:
 
+            // allocate palette memory
             palette = malloc(12 * sizeof(unsigned char*));
 
+            // check for successful allocation, exit on failure
+            if(palette == NULL){
+                printf("error allocating memory for palette\n");
+                exit(1);
+            }
+
+
+            // get intermediate gradients between colors
             palette1 = get_gradient_palette(e_beige, e_brown, 4);
             palette2 = get_gradient_palette(e_brown, e_lightgreen, 4);
             palette3 = get_gradient_palette(e_lightgreen, e_darkgreen, 4);
+
+            // put gradients into final palette
             for(i = 0; i < 4; i++){
 
                 palette[i] = palette1[i];
@@ -1337,11 +1446,22 @@ unsigned char **create_palette(COLOR_PALETTE colors){
 
         case HIGHLIGHTERS:
 
+            // allocate palette memory
             palette = malloc(12 * sizeof(unsigned char*));
 
+            // check for successful allocation, exit on failure
+            if(palette == NULL){
+                printf("error allocating memory for palette\n");
+                exit(1);
+            }
+
+
+            // get intermediate gradients between colors
             palette1 = get_gradient_palette(h_green, h_yellow, 4);
             palette2 = get_gradient_palette(h_yellow, h_pink, 4);
             palette3 = get_gradient_palette(h_pink, h_purple, 4);
+
+            // put gradients into final palette
             for(i = 0; i < 4; i++){
 
                 palette[i] = palette1[i];
@@ -1354,16 +1474,28 @@ unsigned char **create_palette(COLOR_PALETTE colors){
 
         case GRAY_SCALE:
 
+            // get gradient between gray and white
             palette = get_gradient_palette(gs_white, gs_gray, 8);
 
         break;
 
         case MATRIX:
 
+            // allocate palette memory
             palette = malloc(8 * sizeof(unsigned char*));
 
+            // check for successful allocation, exit on failure
+            if(palette == NULL){
+                printf("error allocating memory for palette\n");
+                exit(1);
+            }
+
+
+            // get intermediate gradients between colors
             palette1 = get_gradient_palette(m_green3, m_green2, 4);
             palette2 = get_gradient_palette(m_green2, m_green1, 4);
+
+            // put gradients into final palette
             for(i = 0; i < 4; i++){
 
                 palette[i] = palette1[i];
@@ -1383,10 +1515,17 @@ unsigned char **create_palette(COLOR_PALETTE colors){
 
 }
 
+
+
+////////////////////////////////////
+// free_palette:                  //
+//   free memory in given palette //
+////////////////////////////////////
 void free_palette(unsigned char **palette, COLOR_PALETTE colors){
 
     int i;
 
+    // free memory based on palette enum
     switch(colors){
 
         // 8 color palettes
@@ -1429,9 +1568,16 @@ void free_palette(unsigned char **palette, COLOR_PALETTE colors){
 
 }
 
+
+
+////////////////////////////////////////////
+// trim_string:                           //
+//   trim trailing whitespace from string //
+////////////////////////////////////////////
 void trim_string(char *string){
 
     int i;
+    // replace first space detected with null character
     for(i = 0; i < strlen(string); i++){
         if(isspace(string[i])){
             string[i] = '\0';
