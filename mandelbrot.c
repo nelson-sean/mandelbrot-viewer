@@ -7,7 +7,7 @@
 #include <math.h>
 #include <string.h>
 
-#define BARSIZE 18
+#define BARSIZE 21
 #define MAX_ITERATIONS 100
 
 ///////////////////////////
@@ -57,9 +57,6 @@ typedef enum {
 // Function definitions //
 //////////////////////////
 
-// program functions
-void init_ncurses();
-
 // mandelbrot functions
 complex_t complex_multiply(complex_t x, complex_t y);
 complex_t complex_add(complex_t x, complex_t y);
@@ -69,6 +66,7 @@ complex_t scale(window_t display, int row, int column);
 double is_in_set(complex_t c);
 
 // ncurses functions
+void init_ncurses();
 void draw_info_bar(window_t display);
 void draw_fractal_window(WINDOW *fractal_window, window_t display);
 void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action);
@@ -254,6 +252,10 @@ void draw_info_bar(window_t display){
     mvprintw(5, 0, "  min: %.5Lf", display.min_y);
     mvprintw(6, 0, "  max: %.5Lf", display.max_y);
 
+    mvprintw(8, 0, "w/s - pan up/down");
+    mvprintw(9, 0, "a/d - pan left/right");
+    mvprintw(10, 0, "m - open axes menu");
+    mvprintw(11, 0, "~ - export to bitmap");
 
 }
 
@@ -384,7 +386,6 @@ void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action
     }
 
     // redraw info bar and fractal window
-    draw_info_bar(*display);
     draw_fractal_window(fractal_window, *display);
 
 }
