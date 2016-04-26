@@ -56,23 +56,33 @@ typedef enum {
 //////////////////////////
 // Function definitions //
 //////////////////////////
+
+// program functions
 void init_ncurses();
+
+// mandelbrot functions
 complex_t complex_multiply(complex_t x, complex_t y);
 complex_t complex_add(complex_t x, complex_t y);
 complex_t complex_sub(complex_t x, complex_t y);
 long double complex_magnitude(complex_t x);
 complex_t scale(window_t display, int row, int column);
+double is_in_set(complex_t c);
+
+// ncurses functions
 void draw_info_bar(window_t display);
 void draw_fractal_window(WINDOW *fractal_window, window_t display);
 void move_window(WINDOW *fractal_window, window_t *display, WINDOW_ACTION action);
-double is_in_set(complex_t c);
 void open_menu(window_t *display);
 void open_bitmap_menu(window_t *display);
 COLOR_PALETTE open_palette_menu(window_t *display);
+
+// bitmap functions
 void draw_bitmap(char *file_name, window_t display, int image_width, int image_height, COLOR_PALETTE colors);
 unsigned char **get_gradient_palette(unsigned char color1[3], unsigned char color2[3], int samples);
 unsigned char **create_palette(COLOR_PALETTE colors);
 void free_palette(unsigned char **palette, COLOR_PALETTE colors);
+
+// misc
 void trim_string(char *string);
 
 
