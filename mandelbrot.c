@@ -254,8 +254,9 @@ void draw_info_bar(window_t display){
 
     mvprintw(8, 0, "w/s - pan up/down");
     mvprintw(9, 0, "a/d - pan left/right");
-    mvprintw(10, 0, "m - open axes menu");
-    mvprintw(11, 0, "~ - export to bitmap");
+    mvprintw(10, 0, "e/q - zoom in/out");
+    mvprintw(11, 0, "m - open axes menu");
+    mvprintw(12, 0, "~ - export to bitmap");
 
 }
 
